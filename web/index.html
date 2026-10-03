@@ -2871,7 +2871,29 @@ async function clearTasksAndStats() {
       }
     }
 
-    async function retryExtract(id) {
+    async function deleteTask(id) {
+    if (!confirm("Bạn có chắc chắn muốn xóa task này khỏi lịch sử?")) return;
+    try {
+        await api(`/api/admin/tasks/${id}`, { method: 'DELETE' });
+        toast("Đã xóa tác vụ!", "success");
+        loadTasks();
+    } catch(e) {
+        toast("Lỗi xóa: " + e.message, "error");
+    }
+}
+
+async function resubmitTask(id) {
+    toast("Đang đưa tác vụ trở lại hàng đợi...", "info");
+    try {
+        await api(`/api/admin/tasks/${id}/resubmit`, { method: 'POST' });
+        toast("Đã gửi lại hàng đợi!", "success");
+        loadTasks();
+    } catch(e) {
+        toast("Lỗi gửi lại: " + e.message, "error");
+    }
+}
+
+async function retryExtract(id) {
     toast("Đang thử tải lại video...", "info");
     try {
         await api(`/api/admin/tasks/${id}/retry_extract`, { method: 'POST' });
@@ -2946,10 +2968,14 @@ async function loadTasks() {
           accLinkCell,
           stBadge,
           videoCell,
-          `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`
+          `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`,
+          `<div style="display:flex;gap:6px;flex-direction:row">
+            <button class="btn btn-sm btn-outline" onclick="resubmitTask('${t.id}')">Gửi lại</button>
+            <button class="btn btn-sm btn-outline" style="color:var(--danger); border-color:var(--danger)" onclick="deleteTask('${t.id}')">Xóa</button>
+          </div>`
         ];
       });
-      q('#tasksTable').innerHTML = table(['Task ID & Note', 'Prompt', 'Model', 'Tài Khoản & Link', 'Trạng thái', 'Video', 'Thời gian'], rows);
+      q('#tasksTable').innerHTML = table(['Task ID & Note', 'Prompt', 'Model', 'Tài Khoản & Link', 'Trạng thái', 'Video', 'Thời gian', 'Thao Tác'], rows);
     } catch (e) {
       q('#tasksTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
     }

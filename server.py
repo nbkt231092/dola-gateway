@@ -1142,6 +1142,36 @@ async def admin_task_update_note(task_id: str, body: TaskNotePatch, x_admin_key:
     store.update(task_id, note=body.note)
     return {"ok": True}
 
+@app.delete("/api/admin/tasks/{task_id}")
+async def admin_delete_task(task_id: str, x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    store._conn.execute("DELETE FROM tasks WHERE id=?", (task_id,))
+    store._conn.commit()
+    return {"ok": True}
+
+@app.post("/api/admin/tasks/{task_id}/resubmit")
+async def admin_resubmit_task(task_id: str, x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    row = store.get(task_id)
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Task not found")
+    
+    store.update(task_id, status="queued", error="", video_url="", conversation_id="", account="", failure_code="", started_at=0, finished_at=0)
+    
+    import asyncio
+    ratio = row.get("ratio")
+    if ratio == "default":
+        ratio = None
+        
+    client = _task_client(row)
+    
+    asyncio.create_task(_run_task(
+        task_id, row["model"], row["prompt"], ratio, row["duration"],
+        _task_reference_images(row.get("reference_images")), client
+    ))
+    return {"ok": True}
+
 @app.delete("/api/admin/tasks")
 async def admin_clear_tasks(x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
