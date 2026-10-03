@@ -417,7 +417,6 @@ class BrowserPool:
                 if schedulable_count == 0:
                     break  # No schedulable accounts available, proceed to raise error
                   
-                import asyncio
                 # Schedulable accounts exist, but all were currently locked (busy). Wait and retry.
                 await asyncio.sleep(5)
 
