@@ -563,7 +563,7 @@ async def admin_account_import_cookie(body: CookieImportBody, x_admin_key: str |
         raise HTTPException(400, f"Import failed: {str(e)}")
 
 
-async def _run_headful_login_job(name: str):
+async def _run_headful_login_job(name: str, debug_mode: bool = False):
     JOBS[name] = {
         "kind": "headful_login",
         "status": "running",
@@ -599,7 +599,7 @@ async def _run_headful_login_job(name: str):
 
                 # Check if already logged in
                 cookies = await context.cookies("https://www.dola.com")
-                if any(c["name"] in ("sessionid", "sessionid_ss") and c.get("value") for c in cookies):
+                if (not debug_mode) and any(c["name"] in ("sessionid", "sessionid_ss") and c.get("value") for c in cookies):
                     pool._ensure_meta(name)
                     pool.set_email(name, f"google_{name}")
                     pool.set_login_status(name, True)
@@ -690,7 +690,7 @@ async def _run_headful_login_job(name: str):
                         break
                     try:
                         cookies = await context.cookies("https://www.dola.com")
-                        if any(c["name"] in ("sessionid", "sessionid_ss") and c.get("value") for c in cookies):
+                        if (not debug_mode) and any(c["name"] in ("sessionid", "sessionid_ss") and c.get("value") for c in cookies):
                             logged_in = True
                             c_parts = [f"{c['name']}={c['value']}" for c in cookies if c.get("value")]
                             try:
@@ -740,7 +740,7 @@ async def admin_account_login_browser(body: LoginBrowserBody, x_admin_key: str |
         raise HTTPException(400, "invalid account name (use letters, numbers, underscores)")
     if JOBS.get(body.name, {}).get("status") == "running":
         raise HTTPException(409, f"Tiến trình cho tài khoản '{body.name}' đang chạy")
-    asyncio.create_task(_run_headful_login_job(body.name))
+    asyncio.create_task(_run_headful_login_job(body.name, debug_mode=body.debug_mode))
     return {"ok": True, "status": "running", "account": body.name}
 
 

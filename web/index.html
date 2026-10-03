@@ -1839,7 +1839,7 @@ async function openManualAccount(name) {
     toast(`Đang khởi động Chrome cho ${name}...`, 'info');
     await api('/api/admin/accounts/login-browser', {
       method: 'POST',
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, debug_mode: true })
     });
     toast('Đã mở cửa sổ Chrome!', 'success');
   } catch (err) {
@@ -2405,7 +2405,7 @@ async function submitGoogleLogin() {
     try {
       await api('/api/admin/accounts/login-browser', {
         method: 'POST',
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, debug_mode: true })
       });
       toast('Đã khởi chạy cửa sổ Chrome!', 'info');
       statusTitle.textContent = 'Cửa sổ Chrome đã mở — Vui lòng đăng nhập Google';
