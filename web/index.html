@@ -1675,9 +1675,9 @@ async function submitExtractClean() {
   hide('clean_video_wrap');
 
   try {
-    const res = await api('/api/clean-video', {
+    const res = await api('/api/extract_unwatermarked', {
       method: 'POST',
-      body: JSON.stringify({ input: inp })
+      body: JSON.stringify({ url_or_id: inp })
     });
 
     btn.disabled = false;
