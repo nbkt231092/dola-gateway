@@ -154,13 +154,22 @@ async def extract_videos_from_conv(conversation_id_or_url: str, cookie: str = No
 async def download_clean_video(conversation_id_or_url: str, output_name: str = None) -> dict:
     """Extracts the latest unwatermarked video and downloads it to downloads/."""
     videos = []
-    for c in get_all_cookies():
-        try:
-            videos = await extract_videos_from_conv(conversation_id_or_url, cookie=c)
-            if videos:
+    cookies = get_all_cookies()
+    if cookies:
+        import asyncio
+        async def try_cookie(c):
+            try:
+                res = await extract_videos_from_conv(conversation_id_or_url, cookie=c)
+                return res
+            except Exception:
+                return []
+        
+        # Test all cookies concurrently! Lightning fast.
+        results = await asyncio.gather(*(try_cookie(c) for c in cookies))
+        for res in results:
+            if res:
+                videos = res
                 break
-        except Exception:
-            pass
     if not videos:
         videos = await extract_videos_from_conv(conversation_id_or_url)
     if not videos:
