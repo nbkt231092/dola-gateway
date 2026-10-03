@@ -318,7 +318,8 @@ async def poll_conversation(account: str, page, context, conversation_id: str,
     ms_token, fp = cookie_value(cookies, "msToken"), cookie_value(cookies, "s_v_web_id")
     start = time.time()
     last_callback = 0.0
-    while time.time() - start < timeout:
+    # The user requested to wait at most 20s in the browser, then release it
+    while time.time() - start < min(timeout, 20):
         await asyncio.sleep(5)
         try:
             poll = await asyncio.wait_for(page.evaluate(
@@ -375,7 +376,13 @@ async def poll_conversation(account: str, page, context, conversation_id: str,
         prog = poll.get("creationProgress")
         prog_str = f" [tiến độ {prog}%]" if prog is not None else ""
         print(f"  ...Generating{prog_str} ({elapsed}s)", flush=True)
-    raise TimeoutError(f"Không nhận được video trong {timeout}s (conversation_id={conversation_id})")
+    # Instead of timing out, return pending status for background extraction
+    return {
+        "conversation_id": conversation_id,
+        "account": account,
+        "pending_extract": True,
+        "local_path": ""
+    }
 
 
 async def resume_video(account: str, conversation_id: str, timeout: int,

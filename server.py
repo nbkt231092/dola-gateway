@@ -218,10 +218,21 @@ async def _run_task(task_id, model, prompt, ratio, duration, reference_images, c
             prompt, ratio, duration, model,
             on_conversation_id=on_conversation_id, on_poll=on_poll,
             reference_image_paths=reference_paths)
-        public_url = f"{config.PUBLIC_BASE}/videos/{Path(result['local_path']).name}"
-        store.update(task_id, status="completed", video_url=public_url,
-                     account=result.get("account"), last_poll_at=time.time(),
-                     finished_at=time.time())
+
+        if result.get("pending_extract"):
+            store.update(task_id, status="processing", note=f"Đợi 20p trích xuất: {result.get('conversation_id')}", last_poll_at=time.time())
+            await asyncio.sleep(20 * 60)
+            from unwatermark import download_clean_video
+            dl_res = await download_clean_video(result["conversation_id"], output_name=f"{task_id}.mp4")
+            public_url = dl_res["local_url"]
+            store.update(task_id, status="completed", video_url=public_url,
+                         account=result.get("account"), last_poll_at=time.time(),
+                         finished_at=time.time(), note="Trích xuất gốc thành công")
+        else:
+            public_url = f"{config.PUBLIC_BASE}/videos/{Path(result['local_path']).name}"
+            store.update(task_id, status="completed", video_url=public_url,
+                         account=result.get("account"), last_poll_at=time.time(),
+                         finished_at=time.time())
     except (AllAccountsLimitedError, AllAccountsQuotaBlockedError) as e:
         store.update(task_id, status="failed", error=str(e)[:500],
                      failure_code="429", finished_at=time.time())
@@ -255,12 +266,18 @@ async def _resume_task(row: dict):
         def on_poll(now):
             store.update(task_id, last_poll_at=now)
 
-        result = await pool.resume_video(
-            row["account"], row["conversation_id"], remaining, on_poll=on_poll)
-        public_url = f"{config.PUBLIC_BASE}/videos/{Path(result['local_path']).name}"
+        started = row.get("started_at") or time.time()
+        elapsed = time.time() - started
+        wait_time = max(1, 1200 - elapsed)
+        store.update(task_id, status="processing", note=f"Phục hồi: Đợi {int(wait_time/60)}p trích xuất", last_poll_at=time.time())
+        await asyncio.sleep(wait_time)
+        
+        from unwatermark import download_clean_video
+        dl_res = await download_clean_video(row["conversation_id"], output_name=f"{task_id}.mp4")
+        public_url = dl_res["local_url"]
         store.update(task_id, status="completed", video_url=public_url,
-                     account=result.get("account"), last_poll_at=time.time(),
-                     finished_at=time.time())
+                     account=row["account"], last_poll_at=time.time(),
+                     finished_at=time.time(), note="Phục hồi & Trích xuất gốc thành công")
     except Exception as e:
         store.update(task_id, status="failed", error=str(e)[:500],
                      finished_at=time.time())
