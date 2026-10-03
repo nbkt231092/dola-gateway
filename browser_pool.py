@@ -350,10 +350,10 @@ class BrowserPool:
             last_err = None
             while True:
                 schedulable_count = 0
-                for a in self.list_accounts():
-                    if not self._schedulable(a):
-                        continue
-                    schedulable_count += 1
+                candidates = [a for a in self.list_accounts() if self._schedulable(a)]
+                schedulable_count = len(candidates)
+                candidates.sort(key=lambda x: (x["used_today"], x.get("last_used_at", 0)))
+                for a in candidates:
                     account = a["name"]
                     lock = self._locks.setdefault(account, asyncio.Lock())
                     # Skip busy accounts to prevent concurrent collisions on same profile.

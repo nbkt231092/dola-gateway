@@ -165,7 +165,7 @@ async def attach_reference_images(page, image_paths: list[str]) -> None:
     if not image_paths:
         return
     file_input = page.locator('input[type="file"]').first
-    await file_input.wait_for(state="attached", timeout=10000)
+    await file_input.wait_for(state="attached", timeout=20000)
     events = []
 
     def on_response(response):
@@ -215,7 +215,7 @@ def _gen_track(distance: float):
 
 async def solve_slider(page, frame, attempt: int) -> bool:
     """Solves captcha slider notch within iframe and performs drag."""
-    await frame.wait_for_selector("img", timeout=15000)
+    await frame.wait_for_selector("img", timeout=30000)
     await frame.evaluate("""async () => {
         const t0 = Date.now();
         while (Date.now() - t0 < 10000) {
@@ -393,7 +393,7 @@ async def resume_video(account: str, conversation_id: str, timeout: int,
         try:
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(f"https://www.dola.com/chat/{conversation_id}",
-                            timeout=60000, wait_until="domcontentloaded")
+                            timeout=90000, wait_until="domcontentloaded")
             await page.wait_for_timeout(5000)
             return await poll_conversation(account, page, context, conversation_id, timeout, on_poll, on_balance)
         finally:
@@ -431,7 +431,7 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
             use_extension=use_extension)
         try:
             page = context.pages[0] if context.pages else await context.new_page()
-            await page.goto("https://www.dola.com/chat", timeout=60000, wait_until="domcontentloaded")
+            await page.goto("https://www.dola.com/chat", timeout=90000, wait_until="domcontentloaded")
             await page.wait_for_timeout(5000)
             cookies = await context.cookies("https://www.dola.com")
             ms_token, fp = cookie_value(cookies, "msToken"), cookie_value(cookies, "s_v_web_id")
@@ -572,7 +572,7 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
 
             # ---- Wait for real conversation_id ----
             conv_id = ""
-            for step_i in range(30):
+            for step_i in range(60):
                 await page.wait_for_timeout(1000)
                 tail = page.url.rstrip("/").split("/")[-1]
                 if tail.isdigit():
@@ -587,7 +587,7 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                         pass
             if not conv_id:
                 await page.screenshot(path="no_conv.png")
-                raise TimeoutError("conversation_id not acquired within 30s")
+                raise TimeoutError("conversation_id not acquired within 60s")
             print(f"[{account}] conversation_id={conv_id}, polling for video...", flush=True)
 
             deadline = time.time() + timeout
