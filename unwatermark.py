@@ -11,6 +11,17 @@ from dola_client import DolaClient
 import config
 
 
+def get_all_cookies() -> list[str]:
+    path = Path(config.COOKIES_FILE)
+    if not path.exists():
+        return []
+    cookies = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "sessionid" in line:
+            cookies.append(line)
+    return cookies
+
 def get_active_cookie() -> str:
     """Reads the first valid cookie line from cookies.txt."""
     path = Path(config.COOKIES_FILE)
@@ -142,9 +153,18 @@ async def extract_videos_from_conv(conversation_id_or_url: str, cookie: str = No
 
 async def download_clean_video(conversation_id_or_url: str, output_name: str = None) -> dict:
     """Extracts the latest unwatermarked video and downloads it to downloads/."""
-    videos = await extract_videos_from_conv(conversation_id_or_url)
+    videos = []
+    for c in get_all_cookies():
+        try:
+            videos = await extract_videos_from_conv(conversation_id_or_url, cookie=c)
+            if videos:
+                break
+        except Exception:
+            pass
     if not videos:
-        raise ValueError("Không tìm thấy video nào trong đoạn chat này!")
+        videos = await extract_videos_from_conv(conversation_id_or_url)
+    if not videos:
+        raise ValueError("Không tìm thấy video nào (đã thử tất cả cookie)!")
 
     best = videos[-1]  # Get the most recent video
     clean_url = best["unwatermarked_url"]
