@@ -1823,13 +1823,27 @@ async function loadAccounts() {
         limitDisplay,
         `<span style="font-family:var(--font-mono);font-size:12px">${fmt(a.last_used_at)}</span>`,
         `<div style="display:flex;gap:6px">
-          <button class="btn btn-sm" onclick="delAccount('${esc(a.name)}')">Xóa</button>
+          <button class="btn btn-sm btn-p" onclick="openManualAccount('${esc(a.name)}')">Mở thủ công</button>
+            <button class="btn btn-sm" onclick="delAccount('${esc(a.name)}')">Xóa</button>
         </div>`
       ];
     });
     q('#accountsTable').innerHTML = table(['Tài Khoản', 'Trạng Thái', 'Điều Phối', 'Hạn Mức Hôm Nay', 'Sử Dụng Lần Cuối', 'Thao Tác'], rows);
   } catch (e) {
     q('#accountsTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function openManualAccount(name) {
+  try {
+    toast(`Đang khởi động Chrome cho ${name}...`, 'info');
+    await api('/api/admin/accounts/login-browser', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+    toast('Đã mở cửa sổ Chrome!', 'success');
+  } catch (err) {
+    toast(`Lỗi mở thủ công: ${err.message}`, 'error');
   }
 }
 
