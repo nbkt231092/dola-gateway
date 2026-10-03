@@ -797,10 +797,17 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
 
         <!-- Prompt Textarea -->
         <div class="form-group">
-          <div class="form-label">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 6px;">
+              <div class="form-label" style="margin-bottom:0">
             <span>Mô tả cảnh quay (Prompt) <span style="color:var(--color-danger)">*</span></span>
             <span id="prompt_char_count" style="font-family:var(--font-mono);font-size:11px;color:var(--color-ink-3)">0 ký tự</span>
-          </div>
+              </div>
+              <label class="switch-toggle" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="bulk_mode_toggle" onchange="toggleBulkVideoMode()">
+                  <span class="slider" style="position:relative;display:inline-block;width:32px;height:18px;margin:0;"></span>
+                  <span style="font-size:12px;font-weight:600;color:var(--color-ink-2)">Khởi Tạo Hàng Loạt (Bulk)</span>
+              </label>
+            </div>
           <textarea id="gen_prompt" class="form-control" style="min-height:108px;resize:vertical" placeholder="Ví dụ: Một chú mèo con màu cam chạy nhảy trên đồng cỏ hoa vàng, ánh nắng hoàng hôn điện ảnh chiếu nghiêng, 4k ultra-detailed, cinematic lighting..." oninput="updatePromptCount();updateApiPayloadPreview()"></textarea>
           
           <!-- Preset Prompts -->
@@ -815,7 +822,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
         <!-- Model Selector (Segmented Pills) -->
         <div class="form-group">
           <div class="form-label"><span>Mô hình Video AI</span></div>
-          <div class="pill-group" id="modelPillGroup">
             <div class="pill-btn active" data-val="seedance-2.5" onclick="selectModelPill('seedance-2.5')">
               <span>🌟 Seedance 2.5</span>
               <span class="pill-meta">Chuyển động mượt & thông minh</span>
@@ -832,7 +838,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
         <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px" class="form-group">
           <div>
             <div class="form-label"><span>Tỷ lệ khung hình</span></div>
-            <select id="gen_ratio" class="form-control" onchange="updateApiPayloadPreview()">
               <option value="16:9" selected>16:9 (Video Ngang — YouTube / PC)</option>
               <option value="9:16">9:16 (Video Dọc — TikTok / Reels / Shorts)</option>
               <option value="1:1">1:1 (Hình vuông — Feed)</option>
@@ -843,7 +848,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
 
           <div>
             <div class="form-label"><span>Thời lượng</span></div>
-            <select id="gen_duration" class="form-control" onchange="updateApiPayloadPreview()">
               <option value="10" selected>10 giây (Tiêu chuẩn)</option>
               <option value="15">15 giây (Mở rộng)</option>
               <option value="30">30 giây (Mở rộng)</option>
@@ -886,7 +890,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
         <!-- Ghi Chú (Note) -->
         <div class="form-group" style="margin-top:20px">
           <div class="form-label"><span>Ghi chú (Note) - Không bắt buộc</span></div>
-          <input id="gen_note" class="form-control" placeholder="Ví dụ: Cảnh hành động 01, Cô gái dưới mưa..." onkeyup="updateApiPayloadPreview()">
           <div style="font-size:12px;color:var(--color-ink-3);margin-top:4px">Ghi chú này sẽ được đồng bộ sang bảng Hàng đợi & Lịch sử tác vụ để bạn dễ quản lý video.</div>
         </div>
 
@@ -969,7 +972,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
 
       <div class="form-group">
         <div class="form-label"><span>Link hội thoại Dola hoặc Conversation ID</span></div>
-        <div style="display:flex;gap:10px">
           <input id="clean_input" class="form-control" placeholder="Ví dụ: https://www.dola.com/chat/38417930345701393 hoặc 38417930345701393" onkeydown="if(event.key==='Enter')submitExtractClean()">
           <button id="btn_clean_submit" class="btn btn-p" style="white-space:nowrap;padding:0 22px;font-weight:600" onclick="submitExtractClean()">
             Tải Không Logo
@@ -993,7 +995,6 @@ Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
 
       <div style="margin-top:28px">
         <div class="form-label"><span>Video Đã Tải Về Trong Thư Mục downloads/</span></div>
-        <div id="downloadsTable" class="table-wrap"></div>
       </div>
     </div>
   </section>
@@ -1694,6 +1695,15 @@ async function submitGenerateVideo() {
     if (!resp.ok) throw new Error(data.detail || JSON.stringify(data));
 
     q('#gen_msg').textContent = 'Task ID: ' + data.id;
+    
+    // RAPID-FIRE ENHANCEMENT
+    btn.disabled = false;
+    q('#gen_prompt').value = '';
+    if(q('#gen_note')) q('#gen_note').value = '';
+    updatePromptCount();
+    updateApiPayloadPreview();
+    toast('Đã đẩy task vào Hàng Đợi (Queue)! Bạn có thể nhập tiếp.', 'success');
+
     pollVideoTask(data.id);
   } catch (err) {
     btn.disabled = false;
@@ -1972,12 +1982,10 @@ function openAddAcc() {
     </div>
     <div class="form-group">
       <div class="form-label"><span>Tên định danh profile</span></div>
-      <input id="accNameInp" class="form-control" value="${esc(defaultName)}" placeholder="acc1">
       <div style="font-size:11.5px;color:var(--color-ink-3);margin-top:4px">Định dạng tên: chỉ gồm chữ cái, số, dấu gạch dưới (VD: acc1, acc2, dola_user).</div>
     </div>
     <div class="form-group">
       <div class="form-label"><span>Dán nội dung Cookie (JSON, Netscape txt, hoặc chuỗi cookie)</span></div>
-      <textarea id="accCookieInp" class="form-control" style="min-height:160px;font-family:var(--font-mono);font-size:12px" placeholder='[{"name": "sessionid", "value": "..."}] hoặc dán định dạng Netscape cookies.txt'></textarea>
       <div style="font-size:11.5px;color:var(--color-ink-3);margin-top:4px">Hỗ trợ JSON từ Cookie-Editor / EditThisCookie, file cookies.txt, hoặc chuỗi <code>sessionid=...; sessionid_ss=...</code>.</div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
@@ -2059,7 +2067,6 @@ function openLoginAcc(targetMode = 'auto') {
 
     <div class="form-group" id="loginFormGroup">
       <div class="form-label"><span>Tên profile lưu tài khoản</span></div>
-      <input id="loginAccNameInp" class="form-control" value="${esc(defaultName)}" placeholder="acc1">
       <div style="font-size:11.5px;color:var(--color-ink-3);margin-top:4px">Định dạng tên: chỉ gồm chữ cái, số, dấu gạch dưới (VD: acc1, acc2, dola_user).</div>
     </div>
 
@@ -2072,17 +2079,14 @@ function openLoginAcc(targetMode = 'auto') {
 
       <div class="form-group">
         <div class="form-label"><span>Email Google</span></div>
-        <input id="autoEmailInp" type="email" class="form-control" placeholder="user@gmail.com">
       </div>
 
       <div class="form-group">
         <div class="form-label"><span>Mật khẩu Google</span></div>
-        <input id="autoPassInp" type="password" class="form-control" placeholder="••••••••">
       </div>
 
       <div class="form-group">
         <div class="form-label"><span>Mã bí mật 2FA (TOTP Secret Key)</span></div>
-        <input id="autoTotpInp" class="form-control" style="font-family:var(--font-mono)" placeholder="JBSWY3DPEHPK3PXP">
         <div style="font-size:11.5px;color:var(--color-ink-3);margin-top:4px">
           Khóa bí mật 16-32 ký tự lúc cài Google Authenticator (không phải mã 6 số OTP tạm thời). Hệ thống sẽ tự tính mã OTP theo thời gian thực.
         </div>
@@ -2917,11 +2921,9 @@ function openCreateKey() {
     <h2>Tạo API Key Mới</h2>
     <div class="form-group">
       <div class="form-label"><span>Tên ghi nhớ client</span></div>
-      <input id="keyNameInp" class="form-control" placeholder="my_nextjs_app">
     </div>
     <div class="form-group">
       <div class="form-label"><span>Giới hạn số video mỗi ngày (0 = không giới hạn)</span></div>
-      <input id="keyLimitInp" type="number" class="form-control" value="50">
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">
       <button class="btn" onclick="hide('dlg')">Hủy</button>
