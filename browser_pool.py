@@ -400,13 +400,11 @@ class BrowserPool:
                             last_err = e
                             continue
                         except ServerBusyError as e:
-                            print(f"[pool] {account} server busy, rotating: {e}", flush=True)
-                            last_err = e
-                            continue
+                            print(f"[pool] {account} server busy, failing task immediately: {e}", flush=True)
+                            raise
                         except GenerationFailedError as e:
-                            print(f"[pool] {account} generation failed, rotating: {e}", flush=True)
-                            last_err = e
-                            continue
+                            print(f"[pool] {account} generation failed, failing task immediately: {e}", flush=True)
+                            raise
                         except ContentPolicyError as e:
                             print(f"[pool] {account} content policy rejected prompt: {e}", flush=True)
                             raise
