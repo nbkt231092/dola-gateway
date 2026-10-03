@@ -1076,7 +1076,7 @@ async def admin_tasks(limit: int = 50, x_admin_key: str | None = Header(default=
     _admin_auth(x_admin_key)
     return {"tasks": store.recent_tasks(min(max(limit, 1), 200))}
 
-@app.patch("/api/admin/tasks/{task_id}/note")
+@app.post("/api/admin/tasks/{task_id}/note")
 async def admin_task_update_note(task_id: str, body: TaskNotePatch, x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
     store.update(task_id, note=body.note)

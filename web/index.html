@@ -2877,7 +2877,7 @@ async function clearTasksAndStats() {
     
     try {
         await api(`/api/admin/tasks/${id}/note`, {
-            method: 'PATCH',
+            method: 'POST',
             body: JSON.stringify({ note: newNote.trim() })
         });
         toast("Đã cập nhật ghi chú!", "success");
