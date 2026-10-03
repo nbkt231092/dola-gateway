@@ -195,6 +195,18 @@ def _resolve_ratio(size, ratio):
     return ratio
 
 
+import re
+def _get_output_name(task_id: str) -> str:
+    row = store.get(task_id)
+    if not row:
+        return f"{task_id}.mp4"
+    note = row.get("note")
+    if note and isinstance(note, str) and note.strip():
+        safe = re.sub(r'[\\/*?:"<>|]', "", note.strip())
+        if safe:
+            return f"{safe}_{task_id[-4:]}.mp4"
+    return f"{task_id}.mp4"
+
 async def _run_task(task_id, model, prompt, ratio, duration, reference_images, client):
     api_key_hash = client.get("api_key_hash")
     acquired = False
@@ -220,14 +232,15 @@ async def _run_task(task_id, model, prompt, ratio, duration, reference_images, c
             reference_image_paths=reference_paths)
 
         if result.get("pending_extract"):
-            store.update(task_id, status="processing", note=f"Đợi 20p trích xuất: {result.get('conversation_id')}", last_poll_at=time.time())
+            store.update(task_id, status="processing", last_poll_at=time.time())
             await asyncio.sleep(20 * 60)
             from unwatermark import download_clean_video
-            dl_res = await download_clean_video(result["conversation_id"], output_name=f"{task_id}.mp4")
+            out_name = _get_output_name(task_id)
+            dl_res = await download_clean_video(result["conversation_id"], output_name=out_name)
             public_url = dl_res["local_url"]
             store.update(task_id, status="completed", video_url=public_url,
                          account=result.get("account"), last_poll_at=time.time(),
-                         finished_at=time.time(), note="Trích xuất gốc thành công")
+                         finished_at=time.time())
         else:
             public_url = f"{config.PUBLIC_BASE}/videos/{Path(result['local_path']).name}"
             store.update(task_id, status="completed", video_url=public_url,
@@ -269,15 +282,16 @@ async def _resume_task(row: dict):
         started = row.get("started_at") or time.time()
         elapsed = time.time() - started
         wait_time = max(1, 1200 - elapsed)
-        store.update(task_id, status="processing", note=f"Phục hồi: Đợi {int(wait_time/60)}p trích xuất", last_poll_at=time.time())
+        store.update(task_id, status="processing", last_poll_at=time.time())
         await asyncio.sleep(wait_time)
         
         from unwatermark import download_clean_video
-        dl_res = await download_clean_video(row["conversation_id"], output_name=f"{task_id}.mp4")
+        out_name = _get_output_name(task_id)
+        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name)
         public_url = dl_res["local_url"]
         store.update(task_id, status="completed", video_url=public_url,
                      account=row["account"], last_poll_at=time.time(),
-                     finished_at=time.time(), note="Phục hồi & Trích xuất gốc thành công")
+                     finished_at=time.time())
     except Exception as e:
         store.update(task_id, status="failed", error=str(e)[:500],
                      finished_at=time.time())
