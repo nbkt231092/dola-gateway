@@ -743,6 +743,14 @@ tr:hover td { background: var(--color-paper-hover); }
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
     </button>
   </div>
+          <div id="bulk_input_container" style="display:none;margin-top:10px;">
+            <textarea id="gen_bulk_input" class="form-control" style="min-height:160px;resize:vertical;font-family:var(--font-mono);font-size:12px;white-space:pre" placeholder="Nhập danh sách Prompt (Mỗi dòng 1 prompt).
+Hỗ trợ định dạng: Ghi Chú | Prompt
+Ví dụ:
+Cảnh 1 | Một chú mèo con màu cam chạy nhảy...
+Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
+            <div style="font-size:12px;color:var(--color-ink-3);margin-top:4px">Hệ thống sẽ tự động gửi đồng thời tất cả các prompt này vào hàng đợi Queue và chia tải cho các tài khoản Dola đang rảnh.</div>
+          </div>
 </header>
 
 <!-- Hallmark Numbered Navigation Rail -->
@@ -1567,7 +1575,81 @@ async function checkAccountWarning() {
   } catch (e) {}
 }
 
+function toggleBulkVideoMode() {
+    const isBulk = q('#bulk_mode_toggle').checked;
+    if (isBulk) {
+        hide('gen_prompt');
+        q('#gen_prompt').nextElementSibling.style.display = 'none'; // hide presets
+        show('bulk_input_container');
+        // Hide Note field
+        if(q('#gen_note')) q('#gen_note').parentElement.style.display = 'none';
+        q('#btn_submit_gen').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Bắt Đầu Khởi Tạo Hàng Loạt`;
+    } else {
+        show('gen_prompt');
+        q('#gen_prompt').nextElementSibling.style.display = 'flex'; // show presets
+        hide('bulk_input_container');
+        // Show Note field
+        if(q('#gen_note')) q('#gen_note').parentElement.style.display = 'block';
+        q('#btn_submit_gen').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Khởi Tạo Render Video`;
+    }
+}
+
 async function submitGenerateVideo() {
+    const isBulk = q('#bulk_mode_toggle').checked;
+    
+    if (isBulk) {
+        const raw = q('#gen_bulk_input').value.trim();
+        if (!raw) return toast('Vui lòng nhập danh sách Prompt!', 'error');
+        
+        const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+        if (!lines.length) return toast('Không tìm thấy prompt hợp lệ!', 'error');
+        
+        const model = q('#gen_model').value;
+        const ratio = q('#gen_ratio').value;
+        const duration = parseInt(q('#gen_duration').value);
+        
+        const btn = q('#btn_submit_gen');
+        btn.disabled = true;
+        btn.textContent = 'Đang gửi...';
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (let line of lines) {
+            let note = "";
+            let prompt = line;
+            if (line.includes('|')) {
+                const parts = line.split('|');
+                note = parts[0].trim();
+                prompt = parts.slice(1).join('|').trim();
+            }
+            
+            const body = { model, prompt, ratio, duration, reference_images: [], note };
+            try {
+                const resp = await fetch('/v1/videos/generations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (resp.ok) successCount++;
+                else failCount++;
+            } catch (e) {
+                failCount++;
+            }
+        }
+        
+        btn.disabled = false;
+        toggleBulkVideoMode(); // Reset button text
+        
+        toast(`Đã gửi ${successCount} tasks vào hàng đợi thành công!${failCount > 0 ? ` (Lỗi ${failCount})` : ''}`, 'success');
+        
+        // Switch to Queue tab to see them run
+        switchTab('tasks');
+        return;
+    }
+
+    // ORIGINAL SINGLE VIDEO SUBMIT LOGIC:
+
   const model = q('#gen_model').value;
   const prompt = q('#gen_prompt').value.trim();
   if (!prompt) return toast('Vui lòng nhập mô tả (Prompt) video bạn muốn tạo!', 'error');
