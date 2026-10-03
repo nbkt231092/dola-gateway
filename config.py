@@ -33,7 +33,7 @@ MAX_CONCURRENCY = int(os.getenv("DOLA_MAX_CONCURRENCY", "3"))
 MAX_PENDING_TASKS = int(os.getenv("DOLA_MAX_PENDING_TASKS", "100"))
 
 # Video generation timeout in seconds
-VIDEO_TIMEOUT = int(os.getenv("DOLA_VIDEO_TIMEOUT", "300"))
+VIDEO_TIMEOUT = int(os.getenv("DOLA_VIDEO_TIMEOUT", "900"))
 
 # SQLite database path
 DB_PATH = os.getenv("DOLA_DB_PATH", "tasks.db")
