@@ -122,12 +122,15 @@ class BrowserPool:
         return row[0] if row else 0
 
     def reset_usage(self, account: str):
-        with self._lock:
-            self._conn.execute(
-                "DELETE FROM usage WHERE account=? AND day=?",
-                (account, self._current_day()),
-            )
-            self._conn.commit()
+        self._conn.execute(
+            "DELETE FROM usage WHERE account=? AND day=?",
+            (account, self._current_day()),
+        )
+        self._conn.execute(
+            "UPDATE accounts_meta SET rate_limited_until=0, limit_reason='', quota_blocked_until=0, quota_reason='' WHERE name=?",
+            (account,)
+        )
+        self._conn.commit()
 
     def _claim(self, account: str):
         self._conn.execute(
