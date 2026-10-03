@@ -58,30 +58,36 @@ async def extract_videos_from_conv(conversation_id_or_url: str, cookie: str = No
     cookie_str = cookie or get_active_cookie()
     client = DolaClient(cookie_str)
 
-    body = {
-        "cmd": 3100,
-        "uplink_body": {
-            "pull_singe_chain_uplink_body": {
-                "conversation_id": cid,
-                "anchor_index": 9007199254740991,
-                "conversation_type": 3,
-                "direction": 1,
-                "limit": 20,
-                "ext": {},
-                "filter": {"index_list": []},
-                "evaluate_ab_params": "",
-                "evaluate_common_params": "",
-            }
-        },
-        "sequence_id": str(int(time.time() * 1000)),
-        "channel": 2,
-        "version": "1",
-    }
+    messages = []
+    # Try different conversation_types, as Custom Bots use different types (e.g. 13, 11, 14, 18, etc.)
+    for conv_type in [3, 13, 11, 14, 18]:
+        body = {
+            "cmd": 3100,
+            "uplink_body": {
+                "pull_singe_chain_uplink_body": {
+                    "conversation_id": cid,
+                    "anchor_index": 9007199254740991,
+                    "conversation_type": conv_type,
+                    "direction": 1,
+                    "limit": 20,
+                    "ext": {},
+                    "filter": {"index_list": []},
+                    "evaluate_ab_params": "",
+                    "evaluate_common_params": "",
+                }
+            },
+            "sequence_id": str(int(time.time() * 1000)),
+            "channel": 2,
+            "version": "1",
+        }
 
-    async with aiohttp.ClientSession() as session:
-        res = await client._request_im_chain(session, body, conversation_id=cid)
+        async with aiohttp.ClientSession() as session:
+            res = await client._request_im_chain(session, body, conversation_id=cid)
+            
+        messages = res.get("downlink_body", {}).get("pull_singe_chain_downlink_body", {}).get("messages", [])
+        if messages:
+            break
 
-    messages = res.get("downlink_body", {}).get("pull_singe_chain_downlink_body", {}).get("messages", [])
     videos_found = []
 
     for msg in messages:
