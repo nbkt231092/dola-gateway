@@ -1061,6 +1061,18 @@ async def admin_tasks(limit: int = 50, x_admin_key: str | None = Header(default=
     _admin_auth(x_admin_key)
     return {"tasks": store.recent_tasks(min(max(limit, 1), 200))}
 
+@app.delete("/api/admin/tasks")
+async def admin_clear_tasks(x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    # Clear all tasks from history
+    store._conn.execute("DELETE FROM tasks")
+    store._conn.commit()
+    # Reset pool quota limits and usage
+    pool._conn.execute("DELETE FROM usage")
+    pool._conn.execute("UPDATE accounts_meta SET cooldown_until=0, rate_limited_until=0, quota_blocked_until=0, limit_reason='', quota_reason=''")
+    pool._conn.commit()
+    return {"ok": True, "message": "All tasks and pool statistics have been cleared"}
+
 
 @app.get("/api/admin/stats")
 async def admin_stats(x_admin_key: str | None = Header(default=None)):

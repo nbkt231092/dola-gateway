@@ -1084,7 +1084,10 @@ tr:hover td { background: var(--color-paper-hover); }
           <div class="mono-eyebrow">Queue & History</div>
           <div class="wb-title">Hàng Đợi & Lịch Sử Tác Vụ</div>
         </div>
-        <button class="btn" onclick="loadTasks()">Làm Mới</button>
+        <div style="display:flex; gap:8px">
+            <button class="btn" onclick="loadTasks()">Làm Mới</button>
+            <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger)" onclick="clearTasksAndStats()">Xóa Lịch Sử & Thống Kê</button>
+          </div>
       </div>
       <div id="tasksTable" class="table-wrap"></div>
     </div>
@@ -2725,7 +2728,26 @@ async function checkBulkStatusOnPageLoad() {
 }
 
 /* Tasks Tab */
-async function loadTasks() {
+async function clearTasksAndStats() {
+      if (!confirm("Bạn có chắc muốn xoá TOÀN BỘ hàng đợi tác vụ và thống kê pool không? Hành động này không thể hoàn tác.")) return;
+      try {
+        const r = await fetch("/api/admin/tasks", {
+          method: "DELETE",
+          headers: {"x-admin-key": ADMIN_KEY}
+        });
+        if (r.ok) {
+          alert("Đã xoá thành công!");
+          loadTasks();
+          if (typeof loadStats === 'function') loadStats();
+        } else {
+          alert("Lỗi khi xoá: " + (await r.text()));
+        }
+      } catch (e) {
+        alert("Lỗi: " + e.message);
+      }
+    }
+
+    async function loadTasks() {
   try {
     const res = await api('/api/admin/tasks');
     const list = Array.isArray(res) ? res : (res && res.tasks ? res.tasks : []);
