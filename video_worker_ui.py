@@ -358,7 +358,8 @@ async def poll_conversation(account: str, page, context, conversation_id: str,
                 raise ContentPolicyError(f"Dola từ chối prompt: {bot_reply[:160]}")
             if SERVER_BUSY_PATTERN.search(bot_reply):
                 raise ServerBusyError(f"Máy chủ Dola quá tải: {bot_reply[:120]}")
-            raise GenerationFailedError(f"Dola không tạo video (Bot phản hồi: '{bot_reply[:150]}')")
+
+            print(f"  Bot replied with text, waiting for video block... ({bot_reply[:50]})", flush=True)
 
         # 4. Check for completed video
         if poll.get("videos"):
