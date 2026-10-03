@@ -1407,7 +1407,12 @@ function updatePromptCount() {
 }
 
 function updateApiPayloadPreview() {
-  const p = q('#gen_prompt').value;
+  let p = q('#gen_prompt').value;
+  if (p) {
+    p = p.replace(/\b\d+(?:\.\d+)?s?\s*-\s*\d+(?:\.\d+)?s?\b/g, '');
+    p = p.replace(/:\s+\(/g, ' (');
+    p = p.trim();
+  }
   const m = q('#gen_model').value;
   const r = q('#gen_ratio').value;
   const d = parseInt(q('#gen_duration').value);
