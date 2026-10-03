@@ -429,6 +429,7 @@ class CookieImportBody(BaseModel):
 
 class LoginBrowserBody(BaseModel):
     name: str = "acc1"
+    debug_mode: bool = False
 
 
 class BulkLoginRequest(BaseModel):
