@@ -20,7 +20,7 @@ from video_worker import POLL_JS, RiskControlError, _download, extract_unwaterma
 # Daily limit pattern matching response text
 DAILY_LIMIT_PATTERN = re.compile(
     r"動画生成の\s*1日あたりの上限|每日(?:视频|影片)?生成.*(?:上限|限额|额度)|"
-    r"daily.*(?:limit|quota)|(?:limit|quota).*per\s*day",
+    r"\bdaily\b.*\b(?:limit|quota)\b|\b(?:limit|quota)\b.*\bper\s*day\b",
     re.IGNORECASE,
 )
 
