@@ -301,6 +301,15 @@ async def resume_incomplete_tasks():
         ))
 
 
+def sanitize_prompt(prompt: str) -> str:
+    """Removes time ranges like '0.0s - 2.5s' to prevent Dola LLM from intervening."""
+    import re
+    if not prompt:
+        return prompt
+    prompt = re.sub(r'\b\d+(?:\.\d+)?s?\s*-\s*\d+(?:\.\d+)?s?\b', '', prompt)
+    prompt = re.sub(r':\s+\(', ' (', prompt)
+    return prompt.strip()
+
 @app.post("/v1/videos/generations", response_model=TaskResponse)
 async def create_video(req: VideoGenRequest, authorization: str | None = Header(default=None)):
     client = _auth(authorization)
@@ -326,6 +335,7 @@ async def create_video(req: VideoGenRequest, authorization: str | None = Header(
         raise HTTPException(429, "Insufficient credits: All accounts lack points, waiting for refresh")
     if not pool.accounts:
         raise HTTPException(503, "no account in pool")
+    req.prompt = sanitize_prompt(req.prompt)
     task_id = "video_" + uuid.uuid4().hex
     ratio = _resolve_ratio(req.size, req.ratio)
     try:
