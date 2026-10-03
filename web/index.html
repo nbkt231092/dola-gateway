@@ -2807,9 +2807,6 @@ async function clearTasksAndStats() {
     } catch (e) {
       q('#tasksTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
     }
-  } catch (e) {
-    q('#tasksTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
-  }
 }
 
 /* API Keys Tab */
