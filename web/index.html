@@ -2871,7 +2871,19 @@ async function clearTasksAndStats() {
       }
     }
 
-    async function editTaskNote(id, currentNote) {
+    async function retryExtract(id) {
+    toast("Đang thử tải lại video...", "info");
+    try {
+        await api(`/api/admin/tasks/${id}/retry_extract`, { method: 'POST' });
+        toast("Tải thành công!", "success");
+        loadTasks();
+    } catch(e) {
+        toast("Lỗi tải video: " + e.message, "error");
+        loadTasks();
+    }
+}
+
+async function editTaskNote(id, currentNote) {
     const newNote = prompt("Chỉnh sửa Ghi chú (Note) cho video:", currentNote);
     if (newNote === null || newNote === currentNote) return; // Cancelled or unchanged
     
@@ -2897,11 +2909,15 @@ async function loadTasks() {
         if (t.status === 'completed') stBadge = '<span class="badge b-green">Hoàn tất</span>';
         if (t.status === 'failed') stBadge = '<span class="badge b-red">Thất bại</span>';
 
-        let videoCell = '—';
+                let videoCell = '—';
         if (t.video_url) {
           videoCell = `<div style="display:flex;gap:6px">
             <a class="btn btn-sm btn-p" href="${esc(t.video_url)}" target="_blank" download>Tải</a>
             <button class="btn btn-sm" onclick="playVideo('${esc(t.video_url)}')">Xem</button>
+          </div>`;
+        } else if (t.conversation_id) {
+          videoCell = `<div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-outline" onclick="retryExtract('${t.id}')">Thử tải lại</button>
           </div>`;
         }
 

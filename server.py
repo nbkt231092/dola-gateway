@@ -1107,6 +1107,35 @@ async def admin_tasks(limit: int = 50, x_admin_key: str | None = Header(default=
     _admin_auth(x_admin_key)
     return {"tasks": store.recent_tasks(min(max(limit, 1), 200))}
 
+@app.post("/api/admin/tasks/{task_id}/retry_extract")
+async def admin_task_retry_extract(task_id: str, x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    row = store.get(task_id)
+    if not row or not row.get("conversation_id"):
+        from fastapi import HTTPException
+        raise HTTPException(400, "Task không có conversation_id")
+    
+    from unwatermark import download_clean_video
+    import time
+    try:
+        out_name = _get_output_name(task_id)
+        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name)
+        public_url = dl_res["local_url"]
+        
+        # update note if needed
+        old_note = row.get("note") or ""
+        new_note = old_note
+        if old_note.startswith("Đợi 20p") or old_note.startswith("Phục hồi:"):
+            new_note = "Trích xuất gốc thành công"
+            
+        store.update(task_id, status="completed", video_url=public_url,
+                     last_poll_at=time.time(), finished_at=time.time(), note=new_note)
+        return {"ok": True, "video_url": public_url}
+    except Exception as e:
+        store.update(task_id, status="failed", error=f"Lỗi tải lại: {str(e)}", finished_at=time.time())
+        from fastapi import HTTPException
+        raise HTTPException(400, f"Trích xuất thất bại: {str(e)}")
+
 @app.post("/api/admin/tasks/{task_id}/note")
 async def admin_task_update_note(task_id: str, body: TaskNotePatch, x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
