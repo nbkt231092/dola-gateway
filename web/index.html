@@ -1691,12 +1691,12 @@ async function submitExtractClean() {
     btn.disabled = false;
     btn.textContent = 'Tải Không Logo';
     q('#clean_msg').innerHTML = `<span style="color:var(--color-success);font-weight:600">✓ Đã trích xuất video gốc thành công!</span>`;
-    currentVideoUrl = res.url;
+    currentVideoUrl = res.local_url;
     const vEl = q('#clean_video_player');
-    vEl.src = res.url;
+    vEl.src = res.local_url;
     show('clean_video_wrap');
     const dlBtn = q('#clean_download_btn');
-    dlBtn.href = res.url;
+    dlBtn.href = res.local_url;
     dlBtn.download = res.filename || 'dola_clean_video.mp4';
     loadDownloads();
     toast('Trích xuất thành công video không watermark!', 'success');
