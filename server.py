@@ -1198,8 +1198,12 @@ async def admin_stats(x_admin_key: str | None = Header(default=None)):
     st["busy_accounts"] = sum(1 for a in accs if a.get("busy"))
     st["total_remaining"] = sum(a["remaining"] for a in sched)
     st["proxy"] = config.PROXY or "Direct / None"
-    totals = st.pop("per_account_total", {})
-    st["per_account"] = [{**a, "completed_total": totals.get(a["name"], 0)} for a in accs]
+    astats = st.pop("per_account_stats", {})
+    for a in accs:
+        ast = astats.get(a["name"], {"completed": 0, "failed": 0})
+        a["completed_total"] = ast["completed"]
+        a["failed_total"] = ast["failed"]
+    st["per_account"] = accs
     return st
 
 

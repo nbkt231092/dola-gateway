@@ -315,7 +315,7 @@ class TaskStore:
                 })
             t = per_day[-1]
             per_account = self._conn.execute(
-                "SELECT account, sum(status='completed') FROM tasks "
+                "SELECT account, sum(status='completed'), sum(status='failed') FROM tasks "
                 "WHERE account IS NOT NULL GROUP BY account"
             ).fetchall()
             all_time = self._conn.execute(
@@ -343,7 +343,7 @@ class TaskStore:
             "completed_tasks": all_comp,
             "per_day": per_day,
             "trend": per_day,
-            "per_account_total": {r[0]: r[1] for r in per_account},
+            "per_account_stats": {r[0]: {"completed": r[1] or 0, "failed": r[2] or 0} for r in per_account},
         }
 
     # ===== api keys =====
