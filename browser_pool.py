@@ -414,12 +414,12 @@ class BrowserPool:
                             continue
                             
                   # End of for loop
-                  if schedulable_count == 0:
-                      break  # No schedulable accounts available, proceed to raise error
+                if schedulable_count == 0:
+                    break  # No schedulable accounts available, proceed to raise error
                   
-                  import asyncio
-                  # Schedulable accounts exist, but all were currently locked (busy). Wait and retry.
-                  await asyncio.sleep(5)
+                import asyncio
+                # Schedulable accounts exist, but all were currently locked (busy). Wait and retry.
+                await asyncio.sleep(5)
 
             if self.all_accounts_quota_blocked:
                 raise AllAccountsQuotaBlockedError(
