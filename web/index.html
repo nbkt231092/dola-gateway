@@ -2893,6 +2893,19 @@ async function resubmitTask(id) {
     }
 }
 
+async function openConversationLink(accountName, url) {
+    try {
+        toast(`Đang mở profile ${accountName}...`, 'info');
+        await api('/api/admin/accounts/login-browser', {
+            method: 'POST',
+            body: JSON.stringify({ name: accountName, debug_mode: true, start_url: url })
+        });
+        toast("Đã mở trình duyệt!", "success");
+    } catch(e) {
+        toast("Lỗi mở trình duyệt: " + e.message, "error");
+    }
+}
+
 async function retryExtract(id) {
     toast("Đang thử tải lại video...", "info");
     try {
@@ -2957,7 +2970,7 @@ async function loadTasks() {
             accLinkCell = `<div style="font-weight:600">${esc(t.account)}</div>`;
             if (t.conversation_id) {
                 const dolaLink = `https://www.dola.com/chat/${t.conversation_id}`;
-                accLinkCell += `<div style="margin-top:4px"><a href="${dolaLink}" target="_blank" style="font-size:12px;text-decoration:underline;color:var(--color-primary)">${esc(t.conversation_id)}</a></div>`;
+                accLinkCell += `<div style="margin-top:4px"><a href="javascript:void(0)" onclick="openConversationLink('${esc(t.account)}', '${dolaLink}')" style="font-size:12px;text-decoration:underline;color:var(--color-primary)" title="Mở link này trong Chrome của tài khoản ${esc(t.account)}">${esc(t.conversation_id)}</a></div>`;
             }
         }
 

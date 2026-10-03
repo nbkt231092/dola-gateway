@@ -477,6 +477,7 @@ class CookieImportBody(BaseModel):
 class LoginBrowserBody(BaseModel):
     name: str = "acc1"
     debug_mode: bool = False
+    start_url: str | None = None
 
 
 class BulkLoginRequest(BaseModel):
@@ -620,7 +621,7 @@ async def admin_account_import_cookie(body: CookieImportBody, x_admin_key: str |
         raise HTTPException(400, f"Import failed: {str(e)}")
 
 
-async def _run_headful_login_job(name: str, debug_mode: bool = False):
+async def _run_headful_login_job(name: str, debug_mode: bool = False, start_url: str | None = None):
     JOBS[name] = {
         "kind": "headful_login",
         "status": "running",
@@ -650,7 +651,8 @@ async def _run_headful_login_job(name: str, debug_mode: bool = False):
                 page = context.pages[0] if context.pages else await context.new_page()
                 JOBS[name]["message"] = "Đang mở trang Dola, vui lòng đăng nhập Google trên cửa sổ Chrome..."
                 try:
-                    await page.goto("https://www.dola.com/chat", timeout=60000)
+                    target = start_url if start_url else "https://www.dola.com/chat"
+                    await page.goto(target, timeout=60000)
                 except Exception as e:
                     print(f"[{name}] goto note: {e}", flush=True)
 
@@ -797,7 +799,7 @@ async def admin_account_login_browser(body: LoginBrowserBody, x_admin_key: str |
         raise HTTPException(400, "invalid account name (use letters, numbers, underscores)")
     if JOBS.get(body.name, {}).get("status") == "running":
         raise HTTPException(409, f"Tiến trình cho tài khoản '{body.name}' đang chạy")
-    asyncio.create_task(_run_headful_login_job(body.name, debug_mode=body.debug_mode))
+    asyncio.create_task(_run_headful_login_job(body.name, debug_mode=body.debug_mode, start_url=body.start_url))
     return {"ok": True, "status": "running", "account": body.name}
 
 
