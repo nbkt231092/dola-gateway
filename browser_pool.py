@@ -121,6 +121,14 @@ class BrowserPool:
         ).fetchone()
         return row[0] if row else 0
 
+    def reset_usage(self, account: str):
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM usage WHERE account=? AND day=?",
+                (account, self._current_day()),
+            )
+            self._conn.commit()
+
     def _claim(self, account: str):
         self._conn.execute(
             "INSERT INTO usage(account, day, used) VALUES (?,?,1) "
