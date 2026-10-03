@@ -176,6 +176,8 @@ class VideoGenRequest(BaseModel):
     duration: int | None = Field(None, ge=10, le=30)
     # Accepts durations: 10, 15, 30 seconds.
     reference_images: list[str] = Field(default_factory=list)
+    note: str | None = None
+    note: str | None = None
 
 
 class TaskResponse(BaseModel):
@@ -351,6 +353,7 @@ async def create_video(req: VideoGenRequest, authorization: str | None = Header(
             daily_limit=client["daily_limit"],
             concurrency_limit=client["concurrency_limit"],
             max_pending=config.MAX_PENDING_TASKS,
+            note=req.note,
         )
     except TaskQuotaExceeded as exc:
         raise HTTPException(429, str(exc)) from exc

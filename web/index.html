@@ -875,6 +875,13 @@ tr:hover td { background: var(--color-paper-hover); }
           </div>
         </div>
 
+        <!-- Ghi Chú (Note) -->
+        <div class="form-group" style="margin-top:20px">
+          <div class="form-label"><span>Ghi chú (Note) - Không bắt buộc</span></div>
+          <input id="gen_note" class="form-control" placeholder="Ví dụ: Cảnh hành động 01, Cô gái dưới mưa..." onkeyup="updateApiPayloadPreview()">
+          <div style="font-size:12px;color:var(--color-ink-3);margin-top:4px">Ghi chú này sẽ được đồng bộ sang bảng Hàng đợi & Lịch sử tác vụ để bạn dễ quản lý video.</div>
+        </div>
+
         <!-- Primary Trigger Action -->
         <div style="margin-top:22px;display:flex;align-items:center;gap:14px">
           <button id="btn_submit_gen" class="btn btn-p" style="padding:10px 26px;font-size:14px;font-weight:600" onclick="submitGenerateVideo()">
@@ -1427,7 +1434,8 @@ function updateApiPayloadPreview() {
     prompt: p || "A cinematic shot of a futuristic cyberpunk skyline...",
     ratio: r,
     duration: d,
-    reference_images: refs
+    reference_images: refs,
+    note: q('#gen_note') ? q('#gen_note').value.trim() : ""
   };
 
   const el = q('#api_payload_preview');
@@ -1579,7 +1587,8 @@ async function submitGenerateVideo() {
     prompt: prompt,
     ratio: ratio,
     duration: duration,
-    reference_images: finalRefImages
+    reference_images: finalRefImages,
+    note: q('#gen_note') ? q('#gen_note').value.trim() : ""
   };
 
   const btn = q('#btn_submit_gen');
@@ -2753,32 +2762,51 @@ async function clearTasksAndStats() {
     }
 
     async function loadTasks() {
-  try {
-    const res = await api('/api/admin/tasks');
-    const list = Array.isArray(res) ? res : (res && res.tasks ? res.tasks : []);
-    const rows = list.map(t => {
-      let stBadge = '<span class="badge">Queued</span>';
-      if (t.status === 'processing') stBadge = '<span class="badge b-amber">Đang render</span>';
-      if (t.status === 'completed') stBadge = '<span class="badge b-green">Hoàn tất</span>';
-      if (t.status === 'failed') stBadge = '<span class="badge b-red">Thất bại</span>';
+    try {
+      const res = await api('/api/admin/tasks');
+      const list = Array.isArray(res) ? res : (res && res.tasks ? res.tasks : []);
+      const rows = list.map(t => {
+        let stBadge = '<span class="badge">Queued</span>';
+        if (t.status === 'processing') stBadge = '<span class="badge b-amber">Đang render</span>';
+        if (t.status === 'completed') stBadge = '<span class="badge b-green">Hoàn tất</span>';
+        if (t.status === 'failed') stBadge = '<span class="badge b-red">Thất bại</span>';
 
-      let videoCell = '—';
-      if (t.video_url) {
-        videoCell = `<div style="display:flex;gap:6px">
-          <a class="btn btn-sm btn-p" href="${esc(t.video_url)}" target="_blank" download>Tải</a>
-          <button class="btn btn-sm" onclick="playVideo('${esc(t.video_url)}')">Xem</button>
-        </div>`;
-      }
-      return [
-        `<code style="font-family:var(--font-mono);font-size:11.5px">${esc(t.id)}</code>`,
-        `<div style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,
-        `<span class="badge">${esc(t.model)}</span>`,
-        stBadge,
-        videoCell,
-        `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`
-      ];
-    });
-    q('#tasksTable').innerHTML = table(['Task ID', 'Prompt', 'Model', 'Trạng thái', 'Video', 'Thời gian'], rows);
+        let videoCell = '—';
+        if (t.video_url) {
+          videoCell = `<div style="display:flex;gap:6px">
+            <a class="btn btn-sm btn-p" href="${esc(t.video_url)}" target="_blank" download>Tải</a>
+            <button class="btn btn-sm" onclick="playVideo('${esc(t.video_url)}')">Xem</button>
+          </div>`;
+        }
+
+        let taskIdNoteCell = `<code style="font-family:var(--font-mono);font-size:11.5px">${esc(t.id)}</code>`;
+        if (t.note) {
+          taskIdNoteCell += `<div style="margin-top:6px;font-size:12px;font-weight:600;color:var(--color-primary)"><span style="color:var(--color-ink-3)">Note:</span> ${esc(t.note)}</div>`;
+        }
+
+        let accLinkCell = '—';
+        if (t.account) {
+            accLinkCell = `<div style="font-weight:600">${esc(t.account)}</div>`;
+            if (t.conversation_id) {
+                const dolaLink = `https://www.dola.com/chat/${t.conversation_id}`;
+                accLinkCell += `<div style="margin-top:4px"><a href="${dolaLink}" target="_blank" style="font-size:12px;text-decoration:underline;color:var(--color-primary)">${esc(t.conversation_id)}</a></div>`;
+            }
+        }
+
+        return [
+          taskIdNoteCell,
+          `<div style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,
+          `<span class="badge">${esc(t.model)}</span>`,
+          accLinkCell,
+          stBadge,
+          videoCell,
+          `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`
+        ];
+      });
+      q('#tasksTable').innerHTML = table(['Task ID & Note', 'Prompt', 'Model', 'Tài Khoản & Link', 'Trạng thái', 'Video', 'Thời gian'], rows);
+    } catch (e) {
+      q('#tasksTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
+    }
   } catch (e) {
     q('#tasksTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
   }
