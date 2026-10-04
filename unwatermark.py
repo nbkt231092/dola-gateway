@@ -175,35 +175,50 @@ async def download_clean_video(conversation_id_or_url: str, output_name: str = N
     if not videos:
         raise ValueError("Không tìm thấy video nào (đã thử tất cả cookie)!")
 
-    best = videos[-1]  # Get the most recent video
-    clean_url = best["unwatermarked_url"]
-
     Path(config.DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
-    filename = output_name or f"clean_{best['conversation_id']}_{int(time.time())}.mp4"
-    if not filename.endswith(".mp4"):
-        filename += ".mp4"
-    filepath = Path(config.DOWNLOAD_DIR) / filename
-
-    # Download async chunked
+    results_list = []
+    
     async with aiohttp.ClientSession() as session:
-        async with session.get(clean_url) as resp:
-            resp.raise_for_status()
-            with open(filepath, "wb") as f:
-                async for chunk in resp.content.iter_chunked(65536):
-                    f.write(chunk)
+        for idx, vid in enumerate(videos):
+            clean_url = vid["unwatermarked_url"]
+            
+            if len(videos) == 1:
+                filename = output_name or f"clean_{vid['conversation_id']}_{int(time.time())}.mp4"
+            else:
+                if output_name:
+                    base = output_name.replace(".mp4", "")
+                    filename = f"{base}_part{idx+1}.mp4"
+                else:
+                    filename = f"clean_{vid['conversation_id']}_{int(time.time())}_part{idx+1}.mp4"
+                    
+            if not filename.endswith(".mp4"):
+                filename += ".mp4"
+            filepath = Path(config.DOWNLOAD_DIR) / filename
 
-    local_url = f"/videos/{filename}"
+            async with session.get(clean_url) as resp:
+                resp.raise_for_status()
+                with open(filepath, "wb") as f:
+                    async for chunk in resp.content.iter_chunked(65536):
+                        f.write(chunk)
+            
+            results_list.append({
+                "filename": filename,
+                "local_path": str(filepath),
+                "local_url": f"/videos/{filename}",
+                "remote_url": clean_url,
+                "is_clean": vid.get("is_clean", True),
+                "bitrate": vid.get("bitrate", 0),
+                "size_bytes": filepath.stat().st_size,
+                "size_mb": round(filepath.stat().st_size / (1024 * 1024), 2)
+            })
+            
+    all_local_urls = "|".join(r["local_url"] for r in results_list)
     return {
         "ok": True,
-        "conversation_id": best["conversation_id"],
-        "filename": filename,
-        "local_path": str(filepath),
-        "local_url": local_url,
-        "remote_url": clean_url,
-        "is_clean": best["is_clean"],
-        "bitrate": best.get("bitrate", 0),
-        "size_bytes": filepath.stat().st_size,
-        "size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
+        "conversation_id": videos[0]["conversation_id"],
+        "filename": results_list[0]["filename"],
+        "local_url": all_local_urls,
+        "results": results_list,
         "all_videos": videos,
     }
 

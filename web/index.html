@@ -2969,10 +2969,22 @@ async function loadTasks() {
 
                 let videoCell = '—';
         if (t.video_url) {
-          videoCell = `<div style="display:flex;gap:6px">
-            <a class="btn btn-sm btn-p" href="${esc(t.video_url)}" target="_blank" download>Tải</a>
-            <button class="btn btn-sm" onclick="playVideo('${esc(t.video_url)}')">Xem</button>
-          </div>`;
+          let urls = t.video_url.split('|');
+          if (urls.length === 1) {
+            videoCell = `<div style="display:flex;gap:6px">
+              <a class="btn btn-sm btn-p" href="${esc(urls[0])}" target="_blank" download>Tải</a>
+              <button class="btn btn-sm" onclick="playVideo('${esc(urls[0])}')">Xem</button>
+            </div>`;
+          } else {
+            videoCell = `<div style="display:flex;flex-direction:column;gap:6px">`;
+            urls.forEach((u, idx) => {
+              videoCell += `<div style="display:flex;gap:6px">
+                <a class="btn btn-sm btn-p" href="${esc(u)}" target="_blank" download>Tải P${idx+1}</a>
+                <button class="btn btn-sm" onclick="playVideo('${esc(u)}')">Xem P${idx+1}</button>
+              </div>`;
+            });
+            videoCell += `</div>`;
+          }
         } else if (t.conversation_id) {
           videoCell = `<div style="display:flex;gap:6px">
             <button class="btn btn-sm btn-outline" onclick="retryExtract('${t.id}')">Thử tải lại</button>
