@@ -1159,20 +1159,36 @@ async def admin_resubmit_task(task_id: str, x_admin_key: str | None = Header(def
         from fastapi import HTTPException
         raise HTTPException(404, "Task not found")
     
-    store.update(task_id, status="queued", error="", video_url="", conversation_id="", account="", failure_code="", started_at=0, finished_at=0)
+    import asyncio, uuid
+    new_id = "video_" + uuid.uuid4().hex
     
-    import asyncio
     ratio = row.get("ratio")
-    if ratio == "default":
-        ratio = None
+    if not ratio:
+        ratio = "default"
         
     client = _task_client(row)
     
+    store.create(
+        new_id,
+        row["model"],
+        row["prompt"],
+        ratio,
+        row["duration"],
+        reference_images=row.get("reference_images"),
+        api_key_hash=row.get("api_key_hash"),
+        api_key_name=row.get("api_key_name"),
+        daily_limit=0, # Admin override
+        concurrency_limit=row.get("client_concurrency_limit", 0),
+        note=row.get("note")
+    )
+    
+    rt = None if ratio == "default" else ratio
+    
     asyncio.create_task(_run_task(
-        task_id, row["model"], row["prompt"], ratio, row["duration"],
+        new_id, row["model"], row["prompt"], rt, row["duration"],
         _task_reference_images(row.get("reference_images")), client
     ))
-    return {"ok": True}
+    return {"ok": True, "new_id": new_id}
 
 @app.delete("/api/admin/tasks")
 async def admin_clear_tasks(x_admin_key: str | None = Header(default=None)):
