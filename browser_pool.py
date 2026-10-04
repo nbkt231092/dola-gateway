@@ -362,6 +362,11 @@ class BrowserPool:
                     async with lock:
                         if not self._schedulable(next(x for x in self.list_accounts() if x['name'] == account)):
                             continue  # State changed while waiting
+                            
+                        # Instantly push to the back of the line so concurrent tasks don't pick it on failure
+                        self._conn.execute("UPDATE accounts_meta SET last_used_at=? WHERE name=?", (time.time(), account))
+                        self._conn.commit()
+                        
                         try:
                             def on_balance(balance, source=""):
                                 self._set_credit_balance(account, balance, source)

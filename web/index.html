@@ -810,11 +810,12 @@ tr:hover td { background: var(--color-paper-hover); }
             <button type="button" class="btn btn-sm" onclick="setPresetPrompt('Close-up anime character with flowing hair, gentle breeze, cherry blossoms, Makoto Shinkai aesthetic')">Anime Portrait</button>
           </div>
           <div id="bulk_input_container" style="display:none;margin-top:10px;">
-            <textarea id="gen_bulk_input" class="form-control" style="min-height:160px;resize:vertical;font-family:var(--font-mono);font-size:12px;white-space:pre" placeholder="Nhập danh sách Prompt (Mỗi dòng 1 prompt).
-Hỗ trợ định dạng: Ghi Chú | Prompt
+            <textarea id="gen_bulk_input" class="form-control" style="min-height:160px;resize:vertical;font-family:var(--font-mono);font-size:12px;white-space:pre" placeholder="Nhập danh sách Prompt (Các prompt cách nhau bởi 1 dòng trống).
+Hỗ trợ tự nhận diện Ghi Chú: note_001_Prompt hoặc Ghi Chú | Prompt
 Ví dụ:
-Cảnh 1 | Một chú mèo con màu cam chạy nhảy...
-Cảnh 2 | Chú chó đang nằm ngủ..."></textarea>
+vid_001_Một chú mèo con màu cam chạy nhảy...
+
+vid_002_Chú chó đang nằm ngủ..."></textarea>
             <div style="font-size:12px;color:var(--color-ink-3);margin-top:4px">Hệ thống sẽ tự động gửi đồng thời tất cả các prompt này vào hàng đợi Queue và chia tải cho các tài khoản Dola đang rảnh.</div>
           </div>
         </div>
@@ -1618,8 +1619,8 @@ async function submitGenerateVideo() {
         const raw = q('#gen_bulk_input').value.trim();
         if (!raw) return toast('Vui lòng nhập danh sách Prompt!', 'error');
         
-        const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
-        if (!lines.length) return toast('Không tìm thấy prompt hợp lệ!', 'error');
+        const rawBlocks = raw.split(/\n\s*\n/).map(b => b.trim()).filter(b => b);
+        if (!rawBlocks.length) return toast('Không tìm thấy prompt hợp lệ!', 'error');
         
         const model = q('#gen_model').value;
         const ratio = q('#gen_ratio').value;
@@ -1632,13 +1633,25 @@ async function submitGenerateVideo() {
         let successCount = 0;
         let failCount = 0;
         
-        for (let line of lines) {
+        for (let block of rawBlocks) {
             let note = "";
-            let prompt = line;
-            if (line.includes('|')) {
-                const parts = line.split('|');
+            let prompt = block;
+            if (block.includes('|')) {
+                const parts = block.split('|');
                 note = parts[0].trim();
                 prompt = parts.slice(1).join('|').trim();
+            } else {
+                let match2 = block.match(/^([A-Za-z0-9\\/\-:]+_[A-Za-z0-9\\/\-:]+)_/);
+                let match1 = block.match(/^([A-Za-z0-9\\/\-:]+)_/);
+                if (match2) {
+                    note = match2[1].trim();
+                    prompt = block.substring(match2[0].length).trim();
+                } else if (match1) {
+                    note = match1[1].trim();
+                    prompt = block.substring(match1[0].length).trim();
+                }
+                if (note.includes('\\')) note = note.substring(note.lastIndexOf('\\') + 1);
+                if (note.includes('/')) note = note.substring(note.lastIndexOf('/') + 1);
             }
             
             const body = { model, prompt, ratio, duration, reference_images: [], note };
