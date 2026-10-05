@@ -236,7 +236,7 @@ async def _run_task(task_id, model, prompt, ratio, duration, reference_images, c
             await asyncio.sleep(20 * 60)
             from unwatermark import download_clean_video
             out_name = _get_output_name(task_id)
-            dl_res = await download_clean_video(result["conversation_id"], output_name=out_name)
+            dl_res = await download_clean_video(result["conversation_id"], output_name=out_name, account=result.get("account"))
             public_url = dl_res["local_url"]
             store.update(task_id, status="completed", video_url=public_url,
                          account=result.get("account"), last_poll_at=time.time(),
@@ -287,7 +287,7 @@ async def _resume_task(row: dict):
         
         from unwatermark import download_clean_video
         out_name = _get_output_name(task_id)
-        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name)
+        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name, account=row.get("account"))
         public_url = dl_res["local_url"]
         store.update(task_id, status="completed", video_url=public_url,
                      account=row["account"], last_poll_at=time.time(),
@@ -1121,7 +1121,7 @@ async def admin_task_retry_extract(task_id: str, x_admin_key: str | None = Heade
     import time
     try:
         out_name = _get_output_name(task_id)
-        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name)
+        dl_res = await download_clean_video(row["conversation_id"], output_name=out_name, account=row.get("account"))
         public_url = dl_res["local_url"]
         
         # update note if needed

@@ -151,11 +151,40 @@ async def extract_videos_from_conv(conversation_id_or_url: str, cookie: str = No
     return videos_found
 
 
-async def download_clean_video(conversation_id_or_url: str, output_name: str = None) -> dict:
+async def get_pw_cookie(account_name: str) -> str:
+    from pathlib import Path
+    import config
+    profile_dir = Path("accounts") / account_name
+    if not profile_dir.exists():
+        return ""
+    from patchright.async_api import async_playwright
+    from browser import LAUNCH_ARGS
+    try:
+        async with async_playwright() as p:
+            context = await p.chromium.launch_persistent_context(
+                str(profile_dir), headless=True, args=LAUNCH_ARGS
+            )
+            cookies = await context.cookies("https://www.dola.com")
+            await context.close()
+        return "; ".join([f"{c['name']}={c['value']}" for c in cookies if c.get("value")])
+    except Exception as e:
+        print(f"Failed to get cookie from {account_name}: {e}")
+        return ""
+
+async def download_clean_video(conversation_id_or_url: str, output_name: str = None, account: str = None) -> dict:
     """Extracts the latest unwatermarked video and downloads it to downloads/."""
     videos = []
+    
+    if account:
+        cookie = await get_pw_cookie(account)
+        if cookie:
+            try:
+                videos = await extract_videos_from_conv(conversation_id_or_url, cookie=cookie)
+            except Exception as e:
+                print(f"Failed to extract with account cookie: {e}")
+                
     cookies = get_all_cookies()
-    if cookies:
+    if not videos and cookies:
         import asyncio
         async def try_cookie(c):
             try:
