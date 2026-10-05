@@ -1942,6 +1942,18 @@ async function loadDash() {
 }
 
 /* Accounts Tab */
+async function editAccNote(name, oldNote) {
+  const newNote = prompt(`Nhập ghi chú cho tài khoản ${name}:`, oldNote);
+  if (newNote === null || newNote === oldNote) return;
+  try {
+    await api(`/api/admin/accounts/${name}`, { method: 'PATCH', body: { note: newNote } });
+    toast('Đã cập nhật ghi chú!');
+    loadAccounts();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
 async function toggleScheduling(name, on) {
   try {
     await api(`/api/admin/accounts/${name}`, {
@@ -1982,6 +1994,7 @@ async function loadAccounts() {
 
       return [
         `<span style="font-weight:600;font-family:var(--font-mono)">${esc(a.name)}</span>`,
+        `<span style="display:flex;align-items:center;gap:6px;font-size:13px"><span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--color-ink-2)" title="${esc(a.note || '')}">${esc(a.note || '—')}</span><svg onclick="editAccNote('${esc(a.name)}', '${esc(a.note || '')}')" style="width:14px;height:14px;cursor:pointer;color:var(--color-primary);flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></span>`,
         stateBadge,
         schedToggle,
         limitDisplay,
@@ -1993,7 +2006,7 @@ async function loadAccounts() {
         </div>`
       ];
     });
-    q('#accountsTable').innerHTML = table(['Tài Khoản', 'Trạng Thái', 'Điều Phối', 'Hạn Mức Hôm Nay', 'Sử Dụng Lần Cuối', 'Thao Tác'], rows);
+    q('#accountsTable').innerHTML = table(['Tài Khoản', 'Ghi Chú', 'Trạng Thái', 'Điều Phối', 'Hạn Mức Hôm Nay', 'Sử Dụng Lần Cuối', 'Thao Tác'], rows);
   } catch (e) {
     q('#accountsTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
   }
