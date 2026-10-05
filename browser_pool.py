@@ -384,26 +384,22 @@ class BrowserPool:
                         except CreditInsufficientError as e:
                             print(f"[pool] {account} insufficient points before generation, skipping: {e}", flush=True)
                             self._mark_quota_blocked(account, str(e))
-                            last_err = e
-                            continue
+                            raise e
                         except AccountLimitedError as e:
-                            print(f"[pool] {account} reached daily limit, rotating: {e}", flush=True)
+                            print(f"[pool] {account} reached daily limit, failing task: {e}", flush=True)
                             self._mark_daily_limit(account, str(e))
-                            last_err = e
-                            continue
+                            raise e
                         except CreditError as e:
-                            print(f"[pool] {account} out of quota, rotating: {e}", flush=True)
+                            print(f"[pool] {account} out of quota, failing task: {e}", flush=True)
                             self._claim(account)
-                            last_err = e
-                            continue
+                            raise e
                         except RiskControlError as e:
-                            print(f"[pool] {account} risk control triggered (30m cooldown), rotating: {e}", flush=True)
+                            print(f"[pool] {account} risk control triggered (30m cooldown), failing task: {e}", flush=True)
                             self._conn.execute(
                                 "UPDATE accounts_meta SET cooldown_until=? WHERE name=?",
                                 (time.time() + COOLDOWN_SEC, account))
                             self._conn.commit()
-                            last_err = e
-                            continue
+                            raise e
                         except ServerBusyError as e:
                             print(f"[pool] {account} server busy, failing task immediately: {e}", flush=True)
                             raise
@@ -424,8 +420,7 @@ class BrowserPool:
                             raise
                         except FileNotFoundError as e:
                             print(f"[pool] {account} profile missing, skipping: {e}", flush=True)
-                            last_err = e
-                            continue
+                            raise e
                             
                   # End of for loop
                 if schedulable_count == 0:

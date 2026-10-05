@@ -36,6 +36,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import config
+
+RUNNING_TASKS = {}
+
 from add_account import add_account_flow
 from browser_pool import AllAccountsLimitedError, AllAccountsQuotaBlockedError, BrowserPool
 from media import download_reference_images, validate_reference_urls
@@ -208,6 +211,7 @@ def _get_output_name(task_id: str) -> str:
     return f"{task_id}.mp4"
 
 async def _run_task(task_id, model, prompt, ratio, duration, reference_images, client):
+    RUNNING_TASKS[task_id] = asyncio.current_task()
     api_key_hash = client.get("api_key_hash")
     acquired = False
     reference_root = None
@@ -254,6 +258,8 @@ async def _run_task(task_id, model, prompt, ratio, duration, reference_images, c
         store.update(task_id, status="failed", error=err_msg[:500],
                      finished_at=time.time())
     finally:
+        if task_id in RUNNING_TASKS:
+            del RUNNING_TASKS[task_id]
         if reference_root:
             shutil.rmtree(reference_root, ignore_errors=True)
         if acquired:
@@ -262,6 +268,7 @@ async def _run_task(task_id, model, prompt, ratio, duration, reference_images, c
 
 async def _resume_task(row: dict):
     task_id = row["id"]
+    RUNNING_TASKS[task_id] = asyncio.current_task()
     deadline = row.get("deadline_at") or (
         time.time() + (1800 if row.get("duration") == 30 else config.VIDEO_TIMEOUT)
     )
@@ -296,6 +303,8 @@ async def _resume_task(row: dict):
         store.update(task_id, status="failed", error=str(e)[:500],
                      finished_at=time.time())
     finally:
+        if task_id in RUNNING_TASKS:
+            del RUNNING_TASKS[task_id]
         if acquired:
             await key_limiter.release(api_key_hash)
 
@@ -1147,6 +1156,8 @@ async def admin_task_update_note(task_id: str, body: TaskNotePatch, x_admin_key:
 @app.delete("/api/admin/tasks/{task_id}")
 async def admin_delete_task(task_id: str, x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
+    if task_id in RUNNING_TASKS:
+        RUNNING_TASKS[task_id].cancel()
     store._conn.execute("DELETE FROM tasks WHERE id=?", (task_id,))
     store._conn.commit()
     return {"ok": True}
