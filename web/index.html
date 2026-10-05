@@ -1910,6 +1910,32 @@ async function loadDash() {
         `;
       }).join('');
     }
+    
+    if (st.per_account) {
+      let accs = st.per_account.sort((a, b) => (b.completed_total || 0) - (a.completed_total || 0));
+      let accRows = accs.map(a => {
+        let comp = a.completed_total || 0;
+        let fail = a.failed_total || 0;
+        let tot = comp + fail;
+        let rate = tot > 0 ? Math.round((comp / tot) * 100) : 0;
+        let rateColor = 'var(--color-ink-3)';
+        if (tot > 0) {
+          if (rate >= 80) rateColor = 'var(--color-success)';
+          else if (rate >= 50) rateColor = 'var(--color-warning)';
+          else rateColor = 'var(--color-danger)';
+        }
+        let nameCell = `<span style="font-weight:600;font-family:var(--font-mono)">${esc(a.name)}</span>`;
+        return [
+          nameCell,
+          `<span style="color:var(--color-success);font-weight:700">${comp}</span>`,
+          `<span style="color:var(--color-danger);font-weight:700">${fail}</span>`,
+          `<span style="font-family:var(--font-mono)">${tot}</span>`,
+          `<span style="font-weight:700;color:${rateColor}">${tot > 0 ? rate + '%' : '-'}</span>`
+        ];
+      });
+      q('#accStatsTable').innerHTML = table(['Tài Khoản', 'Thành Công', 'Thất Bại', 'Tổng Lượt Xử Lý', 'Tỉ Lệ Thành Công'], accRows);
+    }
+    
   } catch (e) {
     console.error(e);
   }
