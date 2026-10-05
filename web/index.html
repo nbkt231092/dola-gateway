@@ -1946,7 +1946,7 @@ async function editAccNote(name, oldNote) {
   const newNote = prompt(`Nhập ghi chú cho tài khoản ${name}:`, oldNote);
   if (newNote === null || newNote === oldNote) return;
   try {
-    await api(`/api/admin/accounts/${name}`, { method: 'PATCH', body: { note: newNote } });
+    await api(`/api/admin/accounts/${name}`, { method: 'PATCH', body: JSON.stringify({ note: newNote }) });
     toast('Đã cập nhật ghi chú!');
     loadAccounts();
   } catch (e) {
