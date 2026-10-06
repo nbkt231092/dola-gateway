@@ -1165,6 +1165,27 @@ vid_002_Chú chó đang nằm ngủ..."></textarea>
   </div>
 </div>
 
+
+<!-- Resubmit Prompt Edit Modal -->
+<div id="resubmitModal" class="dialog" onclick="if(event.target===this)closeResubmitModal()">
+  <div class="dialog-content" style="max-width:600px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="margin:0">Chỉnh sửa Prompt & Gửi lại</h2>
+      <button class="btn btn-sm" onclick="closeResubmitModal()">✕</button>
+    </div>
+    <div style="margin-bottom:16px;display:none">
+      <input type="text" id="resubmitTaskId" class="input" disabled>
+    </div>
+    <div style="margin-bottom:16px">
+      <textarea id="resubmitPrompt" class="input" style="height:200px;resize:vertical;font-family:var(--font-mono);font-size:13px;padding:12px;line-height:1.5" placeholder="Nội dung prompt..."></textarea>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:12px">
+      <button class="btn" onclick="closeResubmitModal()">Hủy</button>
+      <button class="btn btn-p" onclick="confirmResubmit()">Gửi Lại 🚀</button>
+    </div>
+  </div>
+</div>
+
 <!-- Support / Donate Modal (VietQR Vietcombank) -->
 <div id="donateModal" class="dialog" onclick="if(event.target===this)closeDonateModal()">
   <div class="box" style="width:460px;text-align:center">
@@ -3076,7 +3097,10 @@ async function loadTasks() {
 
         return [
           taskIdNoteCell,
-          `<div style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.prompt)}">${esc(t.prompt)}</div>`,
+          `<div style="display:flex;align-items:center;gap:6px">
+            <div style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.prompt)}">${esc(t.prompt)}</div>
+            <svg onclick="openResubmitModal('${t.id}')" style="width:14px;height:14px;cursor:pointer;color:var(--color-primary);flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" title="Chỉnh sửa Prompt và Gửi lại" onmouseover="this.style.color='var(--color-ink)'" onmouseout="this.style.color='var(--color-primary)'"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+          </div>`,
           `<span class="badge">${esc(t.model)}</span>`,
           accLinkCell,
           stBadge,
