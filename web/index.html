@@ -2944,15 +2944,40 @@ async function clearTasksAndStats() {
     }
 }
 
-async function resubmitTask(id) {
+async function resubmitTask(id, newPrompt = null) {
     toast("Đang đưa tác vụ trở lại hàng đợi...", "info");
     try {
-        await api(`/api/admin/tasks/${id}/resubmit`, { method: 'POST' });
+        let bodyObj = {};
+        if (newPrompt) bodyObj.prompt = newPrompt;
+        await api(`/api/admin/tasks/${id}/resubmit`, { 
+            method: 'POST',
+            body: JSON.stringify(bodyObj)
+        });
         toast("Đã gửi lại hàng đợi!", "success");
         loadTasks();
     } catch(e) {
         toast("Lỗi gửi lại: " + e.message, "error");
     }
+}
+
+function openResubmitModal(id) {
+    const t = (window.cachedTasks || []).find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('resubmitTaskId').value = t.id;
+    document.getElementById('resubmitPrompt').value = t.prompt || '';
+    show('resubmitModal');
+}
+
+function closeResubmitModal() {
+    hide('resubmitModal');
+}
+
+function confirmResubmit() {
+    const id = document.getElementById('resubmitTaskId').value;
+    const newPrompt = document.getElementById('resubmitPrompt').value;
+    if (!id || !newPrompt.trim()) return toast('Prompt không được để trống', 'error');
+    closeResubmitModal();
+    resubmitTask(id, newPrompt);
 }
 
 async function openConversationLink(accountName, url) {
@@ -3000,6 +3025,7 @@ async function loadTasks() {
     try {
       const res = await api('/api/admin/tasks');
       const list = Array.isArray(res) ? res : (res && res.tasks ? res.tasks : []);
+      window.cachedTasks = list;
       const rows = list.map(t => {
         let stBadge = '<span class="badge">Queued</span>';
         if (t.status === 'processing') stBadge = '<span class="badge b-amber">Đang render</span>';
@@ -3057,7 +3083,7 @@ async function loadTasks() {
           videoCell,
           `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`,
           `<div style="display:flex;gap:6px;flex-direction:row">
-            <button class="btn btn-sm btn-outline" onclick="resubmitTask('${t.id}')">Gửi lại</button>
+            <button class="btn btn-sm btn-outline" onclick="openResubmitModal('${t.id}')">Gửi lại</button>
             <button class="btn btn-sm btn-outline" style="color:var(--danger); border-color:var(--danger)" onclick="deleteTask('${t.id}')">Xóa</button>
           </div>`
         ];

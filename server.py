@@ -1162,8 +1162,11 @@ async def admin_delete_task(task_id: str, x_admin_key: str | None = Header(defau
     store._conn.commit()
     return {"ok": True}
 
+class ResubmitBody(BaseModel):
+    prompt: str | None = None
+
 @app.post("/api/admin/tasks/{task_id}/resubmit")
-async def admin_resubmit_task(task_id: str, x_admin_key: str | None = Header(default=None)):
+async def admin_resubmit_task(task_id: str, body: ResubmitBody | None = None, x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
     row = store.get(task_id)
     if not row:
@@ -1179,10 +1182,11 @@ async def admin_resubmit_task(task_id: str, x_admin_key: str | None = Header(def
         
     client = _task_client(row)
     
+    new_prompt = body.prompt if (body and body.prompt) else row["prompt"]
     store.create(
         new_id,
         row["model"],
-        row["prompt"],
+        new_prompt,
         ratio,
         row["duration"],
         reference_images=row.get("reference_images"),
@@ -1196,7 +1200,7 @@ async def admin_resubmit_task(task_id: str, x_admin_key: str | None = Header(def
     rt = None if ratio == "default" else ratio
     
     asyncio.create_task(_run_task(
-        new_id, row["model"], row["prompt"], rt, row["duration"],
+        new_id, row["model"], new_prompt, rt, row["duration"],
         _task_reference_images(row.get("reference_images")), client
     ))
     return {"ok": True, "new_id": new_id}
