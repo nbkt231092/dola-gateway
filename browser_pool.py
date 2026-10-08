@@ -16,6 +16,7 @@ from video_worker_ui import (
     GenerationFailedError,
     RiskControlError,
     ServerBusyError,
+    continue_conversation,
     generate_video,
     resume_video,
 )
@@ -338,6 +339,48 @@ class BrowserPool:
                     return result
                 except TimeoutError:
                     self._claim(account)
+                    self._conn.commit()
+                    raise
+
+    async def continue_video(self, account: str, conversation_id: str, message: str, on_poll=None, on_balance=None) -> dict:
+        """Continues a video conversation with a follow-up message."""
+        async with self.semaphore:
+            lock = self._locks.setdefault(account, asyncio.Lock())
+            async with lock:
+                def on_balance_cb(balance, source=""):
+                    self._set_credit_balance(account, balance, source)
+                    if on_balance:
+                        on_balance(balance, source)
+                try:
+                    result = await continue_conversation(
+                        account, conversation_id, message, timeout=None, on_poll=on_poll, on_balance=on_balance_cb
+                    )
+                    self._claim(account)
+                    self._conn.execute(
+                        "UPDATE accounts_meta SET last_used_at=? WHERE name=?",
+                        (time.time(), account))
+                    self._conn.commit()
+                    return result
+                except CreditInsufficientError as e:
+                    self._mark_quota_blocked(account, str(e))
+                    raise e
+                except AccountLimitedError as e:
+                    self._mark_daily_limit(account, str(e))
+                    raise e
+                except CreditError as e:
+                    self._claim(account)
+                    raise e
+                except RiskControlError as e:
+                    self._conn.execute(
+                        "UPDATE accounts_meta SET cooldown_until=? WHERE name=?",
+                        (time.time() + COOLDOWN_SEC, account))
+                    self._conn.commit()
+                    raise e
+                except TimeoutError:
+                    self._claim(account)
+                    self._conn.execute(
+                        "UPDATE accounts_meta SET last_used_at=? WHERE name=?",
+                        (time.time(), account))
                     self._conn.commit()
                     raise
 

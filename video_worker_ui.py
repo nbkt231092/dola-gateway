@@ -400,6 +400,93 @@ async def resume_video(account: str, conversation_id: str, timeout: int,
             await context.close()
 
 
+async def continue_conversation(account: str, conversation_id: str, message: str, timeout: int = None, on_poll=None, on_balance=None) -> dict:
+    """Continues an existing conversation by sending a message and polling for video."""
+    timeout = timeout or config.VIDEO_TIMEOUT
+    async with async_playwright() as p:
+        context = await launch_account_context(p, account, headless=config.HEADLESS_MODE, use_extension=True)
+        try:
+            page = context.pages[0] if context.pages else await context.new_page()
+            await page.goto(f"https://www.dola.com/chat/{conversation_id}", timeout=90000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(5000)
+
+            box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
+            if not box:
+                raise RuntimeError("Không tìm thấy ô nhập prompt trên giao diện Dola")
+            await box.click()
+            await page.wait_for_timeout(150)
+
+            # Fast paste / insert prompt (instant instead of character-by-character 100ms delay)
+            try:
+                await page.evaluate("""async (text) => {
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                            return true;
+                        }
+                    } catch (e) {}
+                    return false;
+                }""", message)
+                await page.keyboard.press("Control+v")
+                await page.wait_for_timeout(200)
+            except Exception:
+                pass
+
+            content_in_box = await page.evaluate(
+                """(el) => (el.value || el.innerText || el.textContent || '').trim()""", box
+            )
+            if not content_in_box:
+                try:
+                    await page.keyboard.insert_text(message)
+                    await page.wait_for_timeout(200)
+                except Exception:
+                    pass
+
+            content_in_box = await page.evaluate(
+                """(el) => (el.value || el.innerText || el.textContent || '').trim()""", box
+            )
+            if not content_in_box:
+                try:
+                    tag = await box.evaluate("(el) => el.tagName.toLowerCase()")
+                    if tag in ("textarea", "input"):
+                        await box.fill(message)
+                    else:
+                        await page.keyboard.type(message, delay=1)
+                except Exception:
+                    await page.keyboard.type(message, delay=2)
+
+            await page.wait_for_timeout(400)
+            await page.keyboard.press("Enter")
+            print(f"[{account}] UI submitted continue message: {message[:40]}", flush=True)
+
+            # ---- Captcha Solver (up to 3 attempts) ----
+            solved_or_absent = False
+            for attempt in range(1, 4):
+                frame = None
+                for _ in range(20):
+                    await page.wait_for_timeout(1000)
+                    frame = find_captcha_frame(page)
+                    if frame:
+                        break
+                if not frame:
+                    solved_or_absent = True
+                    break
+                print(f"[{account}] Captcha detected, attempt {attempt} solving...", flush=True)
+                if await solve_slider(page, frame, attempt):
+                    print(f"[{account}] Captcha passed ✓", flush=True)
+                    await page.wait_for_timeout(3000)  # Wait for frontend auto-retry
+                    solved_or_absent = True
+                    break
+                print(f"[{account}] Captcha not passed, retrying...", flush=True)
+            if not solved_or_absent:
+                await page.screenshot(path="solve_fail.png")
+                raise RiskControlError("Captcha failed 3 times")
+
+            return await poll_conversation(account, page, context, conversation_id, timeout, on_poll, on_balance)
+        finally:
+            await context.close()
+
+
 async def generate_video(account: str, prompt: str, ratio: str = None,
                          duration: int = None, timeout: int = None,
                          model: str = "seedance_v2.0", use_extension: bool = True,

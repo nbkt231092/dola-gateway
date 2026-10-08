@@ -3026,6 +3026,21 @@ async function retryExtract(id) {
     }
 }
 
+async function continueAiTask(id) {
+    toast("Đang gửi yêu cầu giục AI...", "info");
+    try {
+        await api(`/api/admin/tasks/${id}/continue`, {
+            method: 'POST',
+            body: JSON.stringify({message: 'tự chọn phương án tối ưu đi đừng hỏi lại tôi'})
+        });
+        toast("Đã gửi tin nhắn giục AI!", "success");
+        loadTasks();
+    } catch(e) {
+        toast("Lỗi giục AI: " + e.message, "error");
+        loadTasks();
+    }
+}
+
 async function editTaskNote(id, currentNote) {
     const newNote = prompt("Chỉnh sửa Ghi chú (Note) cho video:", currentNote);
     if (newNote === null || newNote === currentNote) return; // Cancelled or unchanged
@@ -3108,6 +3123,7 @@ async function loadTasks() {
           `<span style="font-family:var(--font-mono);font-size:12px">${fmt(t.created_at)}</span>`,
           `<div style="display:flex;gap:6px;flex-direction:row">
             <button class="btn btn-sm btn-outline" onclick="openResubmitModal('${t.id}')">Gửi lại</button>
+            ${t.conversation_id ? `<button class="btn btn-sm btn-outline" onclick="continueAiTask('${t.id}')">Giục AI</button>` : ''}
             <button class="btn btn-sm btn-outline" style="color:var(--danger); border-color:var(--danger)" onclick="deleteTask('${t.id}')">Xóa</button>
           </div>`
         ];

@@ -1205,6 +1205,60 @@ async def admin_resubmit_task(task_id: str, body: ResubmitBody | None = None, x_
     ))
     return {"ok": True, "new_id": new_id}
 
+class ContinueBody(BaseModel):
+    message: str
+
+async def _run_continue_task(task_id: str, row: dict, message: str):
+    RUNNING_TASKS[task_id] = asyncio.current_task()
+    try:
+        store.update(task_id, status="processing", last_poll_at=time.time())
+        
+        def on_poll(now):
+            store.update(task_id, last_poll_at=now)
+
+        result = await pool.continue_video(row["account"], row["conversation_id"], message, on_poll=on_poll)
+        
+        if result.get("pending_extract"):
+            store.update(task_id, status="processing", last_poll_at=time.time())
+            await asyncio.sleep(20 * 60)
+            from unwatermark import download_clean_video
+            out_name = _get_output_name(task_id)
+            dl_res = await download_clean_video(result["conversation_id"], output_name=out_name, account=result.get("account"))
+            public_url = dl_res["local_url"]
+            store.update(task_id, status="completed", video_url=public_url,
+                         account=result.get("account"), last_poll_at=time.time(),
+                         finished_at=time.time())
+        else:
+            public_url = f"{config.PUBLIC_BASE}/videos/{Path(result['local_path']).name}"
+            store.update(task_id, status="completed", video_url=public_url,
+                         account=result.get("account"), last_poll_at=time.time(),
+                         finished_at=time.time())
+    except Exception as e:
+        err_msg = str(e).strip() or repr(e)
+        store.update(task_id, status="failed", error=err_msg[:500],
+                     finished_at=time.time())
+    finally:
+        if task_id in RUNNING_TASKS:
+            del RUNNING_TASKS[task_id]
+
+@app.post("/api/admin/tasks/{task_id}/continue")
+async def admin_continue_task(task_id: str, body: ContinueBody, x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    row = store.get(task_id)
+    if not row:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Task not found")
+    if not row.get("account") or not row.get("conversation_id"):
+        from fastapi import HTTPException
+        raise HTTPException(400, "Task does not have an account or conversation_id yet")
+    
+    if task_id in RUNNING_TASKS:
+        RUNNING_TASKS[task_id].cancel()
+    
+    store.update(task_id, status="processing", last_poll_at=time.time())
+    asyncio.create_task(_run_continue_task(task_id, row, body.message))
+    return {"ok": True}
+
 @app.delete("/api/admin/tasks")
 async def admin_clear_tasks(x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)
