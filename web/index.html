@@ -1122,6 +1122,10 @@ vid_002_Chú chó đang nằm ngủ..."></textarea>
             <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger)" onclick="clearTasksAndStats()">Xóa Lịch Sử & Thống Kê</button>
           </div>
       </div>
+      <div style="padding:0 24px 16px 24px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--color-paper-2)">
+          <label style="font-size:13px; font-weight:600; color:var(--color-ink-2); white-space:nowrap">Mẫu câu Giục AI:</label>
+          <input type="text" id="urgeAiPrompt" class="input" style="flex:1; max-width:600px; font-size:13px" value="Tạo video theo phương án tối ưu đi đừng hỏi lại tôi." />
+      </div>
       <div id="tasksTable" class="table-wrap"></div>
     </div>
   </section>
@@ -3027,11 +3031,12 @@ async function retryExtract(id) {
 }
 
 async function continueAiTask(id) {
+    const urgeMsg = document.getElementById('urgeAiPrompt').value.trim() || 'Tạo video theo phương án tối ưu đi đừng hỏi lại tôi.';
     toast("Đang gửi yêu cầu giục AI...", "info");
     try {
         await api(`/api/admin/tasks/${id}/continue`, {
             method: 'POST',
-            body: JSON.stringify({message: 'Tạo video theo phương án tối ưu đi đừng hỏi lại tôi.'})
+            body: JSON.stringify({message: urgeMsg})
         });
         toast("Đã gửi tin nhắn giục AI!", "success");
         loadTasks();
