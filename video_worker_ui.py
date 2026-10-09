@@ -156,18 +156,24 @@ def find_captcha_frame(page):
 
 async def _select_pro_mode(page):
     try:
+        await page.wait_for_timeout(2000)
+        try:
+            await page.wait_for_selector("button:has-text('高速')", state="visible", timeout=3000)
+        except Exception:
+            pass
+            
         fast_btn = page.locator("button:has-text('高速')").first
         if await fast_btn.count() > 0 and await fast_btn.is_visible():
-            await fast_btn.click(timeout=2000)
-            await page.wait_for_timeout(300)
+            await fast_btn.click(timeout=5000)
+            await page.wait_for_timeout(1500)
             pro_opt = page.locator("text=高度なプロモデル").first
             if await pro_opt.count() > 0:
-                await pro_opt.click(timeout=2000)
+                await pro_opt.click(timeout=5000)
             else:
                 pro_opt2 = page.locator("text=プロ").last
                 if await pro_opt2.count() > 0:
-                    await pro_opt2.click(timeout=2000)
-            await page.wait_for_timeout(300)
+                    await pro_opt2.click(timeout=5000)
+            await page.wait_for_timeout(1000)
     except Exception as e:
         print(f"  (Failed to select PRO mode: {str(e)[:80]})", flush=True)
 
