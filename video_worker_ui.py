@@ -153,6 +153,24 @@ def find_captcha_frame(page):
     return None
 
 
+
+async def _select_pro_mode(page):
+    try:
+        fast_btn = page.locator("button:has-text('高速')").first
+        if await fast_btn.count() > 0 and await fast_btn.is_visible():
+            await fast_btn.click(timeout=2000)
+            await page.wait_for_timeout(300)
+            pro_opt = page.locator("text=高度なプロモデル").first
+            if await pro_opt.count() > 0:
+                await pro_opt.click(timeout=2000)
+            else:
+                pro_opt2 = page.locator("text=プロ").last
+                if await pro_opt2.count() > 0:
+                    await pro_opt2.click(timeout=2000)
+            await page.wait_for_timeout(300)
+    except Exception as e:
+        print(f"  (Failed to select PRO mode: {str(e)[:80]})", flush=True)
+
 async def _fetch_bytes(url: str) -> bytes:
     async with aiohttp.ClientSession() as s:
         async with s.get(url, proxy=config.PROXY or None) as r:
@@ -410,6 +428,8 @@ async def continue_conversation(account: str, conversation_id: str, message: str
             await page.goto(f"https://www.dola.com/chat/{conversation_id}", timeout=90000, wait_until="domcontentloaded")
             await page.wait_for_timeout(5000)
 
+            await _select_pro_mode(page)
+
             box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
             if not box:
                 raise RuntimeError("Không tìm thấy ô nhập prompt trên giao diện Dola")
@@ -584,6 +604,8 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                         await page.click(f"text={duration}s", timeout=3000)
                     except Exception as e:
                         print(f"  (Failed to set duration, using default: {str(e)[:80]})", flush=True)
+
+            await _select_pro_mode(page)
 
             box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
             if not box:
