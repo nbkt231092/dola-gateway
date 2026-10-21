@@ -128,8 +128,20 @@ class BrowserPool:
             (account, self._current_day()),
         )
         self._conn.execute(
-            "UPDATE accounts_meta SET rate_limited_until=0, limit_reason='', quota_blocked_until=0, quota_reason='' WHERE name=?",
+            "UPDATE accounts_meta SET scheduling=1, note='', cooldown_until=0, "
+            "rate_limited_until=0, limit_reason='', quota_blocked_until=0, "
+            "quota_reason='', credit_balance=NULL WHERE name=?",
             (account,)
+        )
+        self._conn.commit()
+
+    def reset_all(self):
+        _ = self.accounts
+        self._conn.execute("DELETE FROM usage")
+        self._conn.execute(
+            "UPDATE accounts_meta SET scheduling=1, note='', cooldown_until=0, "
+            "rate_limited_until=0, limit_reason='', quota_blocked_until=0, "
+            "quota_reason='', credit_balance=NULL"
         )
         self._conn.commit()
 

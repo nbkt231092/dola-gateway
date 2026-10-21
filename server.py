@@ -555,6 +555,13 @@ async def admin_account_delete(name: str, x_admin_key: str | None = Header(defau
     return {"ok": True}
 
 
+@app.post("/api/admin/accounts/reset-all")
+async def admin_accounts_reset_all(x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    pool.reset_all()
+    return {"ok": True}
+
+
 @app.post("/api/admin/accounts/{name}/reset-limit")
 async def admin_account_reset_limit(name: str, x_admin_key: str | None = Header(default=None)):
     _admin_auth(x_admin_key)

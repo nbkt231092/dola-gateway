@@ -1071,6 +1071,7 @@ vid_002_Chú chó đang nằm ngủ..."></textarea>
           <div class="wb-title">Danh Sách Tài Khoản Dola</div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn" style="color:var(--color-danger);border-color:var(--color-danger)" onclick="resetAllAccounts()">🔄 Reset All</button>
           <button class="btn" onclick="openLoginAcc('auto')">＋ Đăng Nhập Google</button>
           <button class="btn btn-p" onclick="openBulkLoginModal()">⚡ Đăng Nhập Hàng Loạt</button>
           <button class="btn" onclick="openAddAcc()">🍪 Thêm Cookie JSON</button>
@@ -2034,6 +2035,18 @@ async function loadAccounts() {
     q('#accountsTable').innerHTML = table(['Tài Khoản', 'Ghi Chú', 'Trạng Thái', 'Điều Phối', 'Hạn Mức Hôm Nay', 'Sử Dụng Lần Cuối', 'Thao Tác'], rows);
   } catch (e) {
     q('#accountsTable').innerHTML = `<div style="padding:24px;text-align:center;color:var(--color-ink-3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function resetAllAccounts() {
+  if (!confirm('Xác nhận Reset All: Bật lại điều phối (Hoạt động), xóa toàn bộ ghi chú và đặt lại hạn mức/quota về 0 cho tất cả tài khoản?')) return;
+  try {
+    await api('/api/admin/accounts/reset-all', { method: 'POST' });
+    toast('Đã reset trạng thái, ghi chú và hạn mức của toàn bộ tài khoản!', 'success');
+    loadAccounts();
+    checkAccountWarning();
+  } catch (e) {
+    toast(e.message, 'error');
   }
 }
 
