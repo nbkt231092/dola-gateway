@@ -17,6 +17,9 @@ def _load_local_env():
 
 
 _load_local_env()
+_portable_browsers = Path(__file__).with_name("runtime") / "browsers"
+if _portable_browsers.exists():
+    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(_portable_browsers.resolve()))
 HOST = os.getenv("DOLA_HOST", "0.0.0.0")
 PORT = int(os.getenv("DOLA_PORT", "8000"))
 

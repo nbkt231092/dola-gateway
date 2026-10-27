@@ -12,8 +12,21 @@ echo =====================================================================
 echo.
 
 cd /d "%~dp0"
+set "PYTHONPATH=%~dp0"
 
-:: 1. Kiem tra Python
+if exist "%~dp0runtime\browsers" (
+    set "PLAYWRIGHT_BROWSERS_PATH=%~dp0runtime\browsers"
+)
+
+if exist "%~dp0runtime\python\python.exe" (
+    set "PY_EXE=%~dp0runtime\python\python.exe"
+    for /f "tokens=2 delims= " %%v in ('"!PY_EXE!" --version 2^>^&1') do set PY_VER=%%v
+    echo [1/4] Che do PORTABLE: Da tim thay Python tich hop (!PY_VER!)
+    echo [2/4] Da kich hoat thu vien va Chromium Portable san co.
+    goto :check_env
+)
+
+:: 1. Kiem tra Python he thong
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo [LOI] Khong tim thay Python tren he thong!
@@ -42,6 +55,7 @@ if not exist ".venv\Scripts\activate.bat" (
 
 :: Kich hoat virtual environment
 call .venv\Scripts\activate.bat
+set "PY_EXE=python"
 
 :: 3. Kiem tra va cai dat dependencies
 echo [3/5] Kiem tra thu vien phu thuoc (requirements)...
@@ -60,8 +74,9 @@ if !errorlevel! neq 0 (
     echo    -^> Cac thu vien da duoc cai dat day du.
 )
 
+:check_env
 :: 4. Kiem tra file cau hinh .env.local
-echo [4/5] Kiem tra file cau hinh moi truong...
+echo [3/4] Kiem tra file cau hinh moi truong...
 if not exist ".env.local" (
     echo    -^> Chua co file .env.local. Dang tao file mau...
     > .env.local echo # Cau hinh Dola Render Gateway
@@ -90,14 +105,14 @@ if not exist "accounts" mkdir accounts
 
 :: 5. Khoi chay FastAPI server
 echo.
-echo [5/5] Dang khoi chay Dola Render Gateway Server...
+echo [4/4] Dang khoi chay Dola Render Gateway Server...
 echo ---------------------------------------------------------------------
 echo  * Admin Dashboard:  http://127.0.0.1:8000 (hoac http://127.0.0.1:8000/web)
 echo  * Swagger API Docs: http://127.0.0.1:8000/docs
 echo ---------------------------------------------------------------------
 echo.
 
-python -c "import uvicorn, config; uvicorn.run('server:app', host=config.HOST, port=config.PORT)"
+"!PY_EXE!" -c "import uvicorn, config; uvicorn.run('server:app', host=config.HOST, port=config.PORT)"
 
 echo.
 echo [THONG BAO] Server da ket thuc hoac bi dung!
