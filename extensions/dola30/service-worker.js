@@ -692,9 +692,16 @@ function patchDurationSelector(value, seen = new Set()) {
   const options = Array.isArray(value.option_list) ? value.option_list : [];
   const looksLikeDuration = selectorKey === "video-duration"
     || selectorKey === "duration"
-    || /时长|鏃堕暱|時間|長さ|duration/i.test(label)
-    || (options.some((option) => String(option?.option_key || option?.value || "") === "5")
-      && options.some((option) => String(option?.option_key || option?.value || "") === "10"));
+    || /时长|鏃堕暱|時間|長さ|duration|길이|시간|thời lượng/i.test(label)
+    || (options.some((option) => ["5", "10", "15"].includes(String(option?.option_key || option?.value || "")))
+      && options.some((option) => /^(5|10|15)\s*(s|초|秒|giây)?$/i.test(String(option?.display_text || option?.show_name || ""))));
+
+  if (Array.isArray(value.supported_durations) && value.supported_durations.length) {
+    if (!value.supported_durations.includes("30") && !value.supported_durations.includes(30)) {
+      value.supported_durations.push("30");
+      changed = true;
+    }
+  }
 
   if (looksLikeDuration && options.length) {
     const has30s = options.some((option) => String(option?.option_key || option?.value || "") === "30");

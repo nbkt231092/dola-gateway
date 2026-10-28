@@ -530,6 +530,252 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                 re.compile(r"^(動画を作成|Create Videos?|동영상 생성|동영상 만들기|비디오 생성|Tạo video)$", re.I)
             ).first
             await video_entry.click(timeout=30000)
+            await page.wait_for_timeout(2000)
+            if reference_image_paths:
+                await attach_reference_images(page, reference_image_paths)
+
+            # 1. Select model in UI (supports JP / KR / EN / VI)
+            try:
+                current_model = None
+                current_label = ""
+                model_pill_re = re.compile(
+                    r"(モデル|모델|Model|Seedance|Mô hình)\s*(2\.5|2\.0|1\.0)", re.I
+                )
+                cands = page.get_by_text(model_pill_re, exact=False)
+                cnt = await cands.count()
+                for idx in range(cnt):
+                    cand = cands.nth(idx)
+                    if await cand.is_visible():
+                        current_model = cand
+                        try:
+                            current_label = (await cand.inner_text()).strip()
+                        except Exception:
+                            current_label = ""
+                        break
+
+                if current_model is None:
+                    raise RuntimeError("Model pill button not found on action bar")
+
+                need_switch = True
+                if current_label:
+                    if model_key == "seedance_v2.5" and "2.5" in current_label:
+                        need_switch = False
+                    elif model_key == "seedance_v2.0" and "2.0" in current_label and "2.5" not in current_label:
+                        need_switch = False
+
+                print(f"  [UI] Current model pill: '{current_label}' -> target={model_key} (need_switch={need_switch})", flush=True)
+                if need_switch:
+                    await current_model.click(timeout=5000)
+                    await page.wait_for_timeout(800)
+                    target_re = (
+                        re.compile(r"(Dreamina\s*Seedance\s*2\.5|Seedance\s*2\.5|モデル\s*2\.5|모델\s*2\.5|Model\s*2\.5|Mô hình\s*2\.5)", re.I)
+                        if model_key == "seedance_v2.5"
+                        else re.compile(r"(Dreamina\s*Seedance\s*2\.0|Seedance\s*2\.0|モデル\s*2\.0|모델\s*2\.0|Model\s*2\.0|Mô hình\s*2\.0)", re.I)
+                    )
+                    opts = page.get_by_text(target_re, exact=False)
+                    opt_cnt = await opts.count()
+                    selected = False
+                    # Iterate from last to first so dropdown popup items (appended at end of DOM) are preferred over the bar pill
+                    for idx in range(opt_cnt - 1, -1, -1):
+                        cand = opts.nth(idx)
+                        if await cand.is_visible():
+                            await cand.click(timeout=5000)
+                            selected = True
+                            print(f"  [UI] Switched model to {model_key}", flush=True)
+                            break
+                    if not selected:
+                        raise RuntimeError(f"Model option for {model_key} not found in dropdown")
+                    await page.wait_for_timeout(600)
+            except Exception as e:
+                print(f"  (Failed to set model {model_key}: {str(e)[:120]})", flush=True)
+
+            # 2. Select ratio in UI (supports JP / KR / EN / VI)
+            if ratio:
+                try:
+                    ratio_btn = page.get_by_text(
+                        re.compile(r"^(比率|비율|Ratio|Aspect Ratio|Tỷ lệ|\d+:\d+)$", re.I)
+                    ).first
+                    if not await ratio_btn.count() or not await ratio_btn.is_visible():
+                        ratio_btn = page.get_by_text(
+                            re.compile(r"(比率|비율|Ratio|Aspect Ratio|Tỷ lệ|\b(16:9|9:16|1:1|4:3|3:4)\b)", re.I)
+                        ).first
+                    await ratio_btn.click(timeout=3000)
+                    await page.wait_for_timeout(600)
+                    ratio_opts = page.get_by_text(re.compile(rf"^{re.escape(ratio)}\b"), exact=False)
+                    r_cnt = await ratio_opts.count()
+                    for idx in range(r_cnt - 1, -1, -1):
+                        rc = ratio_opts.nth(idx)
+                        if await rc.is_visible():
+                            await rc.click(timeout=3000)
+                            print(f"  [UI] Selected ratio {ratio}", flush=True)
+                            break
+                    await page.wait_for_timeout(400)
+                except Exception as e:
+                    print(f"  (Failed to set ratio, using default: {str(e)[:80]})", flush=True)
+
+            # 3. Select duration in UI (supports 10s/15s/30s and Korean 초 / Japanese 秒 / English s)
+            if duration:
+                try:
+                    dur_pill_re = re.compile(r"^(\d+\s*(?:s|초|秒|giây)|時間|길이|시간|Duration|Thời lượng)$", re.I)
+                    dur_pills = page.get_by_text(dur_pill_re)
+                    dp_cnt = await dur_pills.count()
+                    dur_pill = None
+                    dur_label = ""
+                    for idx in range(dp_cnt):
+                        cand = dur_pills.nth(idx)
+                        if await cand.is_visible():
+                            dur_pill = cand
+                            try:
+                                dur_label = (await cand.inner_text()).strip()
+                            except Exception:
+                                dur_label = ""
+                            break
+
+                    if dur_pill is not None:
+                        # Only click to open dropdown if not already set to target duration
+                        if not re.match(rf"^{duration}\s*(?:s|초|秒|giây)$", dur_label, re.I):
+                            await dur_pill.click(timeout=3000)
+                            await page.wait_for_timeout(600)
+                            target_dur_re = re.compile(rf"^{duration}\s*(?:s|초|秒|giây)?$", re.I)
+                            d_opts = page.get_by_text(target_dur_re)
+                            d_cnt = await d_opts.count()
+                            clicked_dur = False
+                            for idx in range(d_cnt - 1, -1, -1):
+                                dc = d_opts.nth(idx)
+                                if await dc.is_visible():
+                                    await dc.click(timeout=3000)
+                                    clicked_dur = True
+                                    print(f"  [UI] Selected duration {duration}s", flush=True)
+                                    break
+                            if not clicked_dur:
+                                print(f"  (Duration option {duration}s not found in dropdown)", flush=True)
+                            await page.wait_for_timeout(400)
+                        else:
+                            print(f"  [UI] Duration already set to {dur_label}", flush=True)
+                    else:
+                        print("  (Duration pill button not found on action bar)", flush=True)
+                except Exception as e:
+                    print(f"  (Failed to set duration, using default: {str(e)[:80]})", flush=True)
+
+            box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
+            if not box:
+                raise RuntimeError("Không tìm thấy ô nhập prompt trên giao diện Dola")
+            await box.click()
+            await page.wait_for_timeout(150)
+
+            # Fast paste / insert prompt (instant instead of character-by-character 100ms delay)
+            try:
+                await page.evaluate("""async (text) => {
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(text);
+                            return true;
+                        }
+                    } catch (e) {}
+                    return false;
+                }""", message)
+                await page.keyboard.press("Control+v")
+                await page.wait_for_timeout(200)
+            except Exception:
+                pass
+
+            content_in_box = await page.evaluate(
+                """(el) => (el.value || el.innerText || el.textContent || '').trim()""", box
+            )
+            if not content_in_box:
+                try:
+                    await page.keyboard.insert_text(message)
+                    await page.wait_for_timeout(200)
+                except Exception:
+                    pass
+
+            content_in_box = await page.evaluate(
+                """(el) => (el.value || el.innerText || el.textContent || '').trim()""", box
+            )
+            if not content_in_box:
+                try:
+                    tag = await box.evaluate("(el) => el.tagName.toLowerCase()")
+                    if tag in ("textarea", "input"):
+                        await box.fill(message)
+                    else:
+                        await page.keyboard.type(message, delay=1)
+                except Exception:
+                    await page.keyboard.type(message, delay=2)
+
+            await page.wait_for_timeout(400)
+            await page.keyboard.press("Enter")
+            print(f"[{account}] UI submitted continue message: {message[:40]}", flush=True)
+
+            # ---- Captcha Solver (up to 3 attempts) ----
+            solved_or_absent = False
+            for attempt in range(1, 4):
+                frame = None
+                for _ in range(20):
+                    await page.wait_for_timeout(1000)
+                    frame = find_captcha_frame(page)
+                    if frame:
+                        break
+                if not frame:
+                    solved_or_absent = True
+                    break
+                print(f"[{account}] Captcha detected, attempt {attempt} solving...", flush=True)
+                if await solve_slider(page, frame, attempt):
+                    print(f"[{account}] Captcha passed ✓", flush=True)
+                    await page.wait_for_timeout(3000)  # Wait for frontend auto-retry
+                    solved_or_absent = True
+                    break
+                print(f"[{account}] Captcha not passed, retrying...", flush=True)
+            if not solved_or_absent:
+                await page.screenshot(path="solve_fail.png")
+                raise RiskControlError("Captcha failed 3 times")
+
+            return await poll_conversation(account, page, context, conversation_id, timeout, on_poll, on_balance)
+        finally:
+            await context.close()
+
+
+async def generate_video(account: str, prompt: str, ratio: str = None,
+                         duration: int = None, timeout: int = None,
+                         model: str = "seedance_v2.0", use_extension: bool = True,
+                         on_conversation_id=None, on_poll=None, on_balance=None,
+                         reference_image_paths: list[str] | None = None) -> dict:
+    """Full generation flow via UI automation."""
+    timeout = timeout or config.VIDEO_TIMEOUT
+    model_key = model.lower().replace("-", "_")
+    if model_key in ("seedance_2.5", "seedance_v2.5", "seedance_25", "seedance_v25"):
+        model_key = "seedance_v2.5"
+    elif model_key in ("seedance_2.0", "seedance_v2.0", "seedance_20", "seedance_v20"):
+        model_key = "seedance_v2.0"
+    else:
+        raise ValueError(f"Unsupported model: {model} (supported: seedance-2.0 / seedance-2.5)")
+    if duration is not None and duration not in (10, 15, 30):
+        raise ValueError("Dola supports durations of 10s, 15s, and 30s via extension")
+    if duration == 30 and not use_extension:
+        raise ValueError("30s generation requires Dola30 extension enabled")
+    # 30s videos require extended generation timeout
+    if duration == 30:
+        timeout = max(timeout, 1800)
+    if model_key == "seedance_v2.5":
+        timeout = max(timeout, 600)
+    if reference_image_paths:
+        timeout = max(timeout, config.REFERENCE_VIDEO_TIMEOUT)
+    async with async_playwright() as p:
+        context = await launch_account_context(
+            p, account, headless=False if use_extension else None,
+            use_extension=use_extension)
+        try:
+            page = context.pages[0] if context.pages else await context.new_page()
+            await page.goto("https://www.dola.com/chat", timeout=90000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(5000)
+            cookies = await context.cookies("https://www.dola.com")
+            ms_token, fp = cookie_value(cookies, "msToken"), cookie_value(cookies, "s_v_web_id")
+            await _preflight_balance(page, ms_token, fp, config.VIDEO_REQUIRED_POINTS)
+
+            # ---- UI Submission ----
+            video_entry = page.get_by_text(
+                re.compile(r"^(動画を作成|Create Videos?|동영상 생성|동영상 만들기|비디오 생성|Tạo video)$", re.I)
+            ).first
+            await video_entry.click(timeout=30000)
             await page.wait_for_timeout(1500)
             if reference_image_paths:
                 await attach_reference_images(page, reference_image_paths)
