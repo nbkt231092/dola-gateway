@@ -659,8 +659,9 @@ async def _run_headful_login_job(name: str, debug_mode: bool = False, start_url:
                 "locale": "ja-JP",
                 "timezone_id": "Asia/Tokyo",
             }
-            if config.PROXY:
-                kwargs["proxy"] = {"server": config.PROXY}
+            pw_proxy = config.get_playwright_proxy()
+            if pw_proxy:
+                kwargs["proxy"] = pw_proxy
 
             context = await p.chromium.launch_persistent_context(str(profile_dir), **kwargs)
             try:
@@ -1277,6 +1278,23 @@ async def admin_clear_tasks(x_admin_key: str | None = Header(default=None)):
     pool._conn.execute("UPDATE accounts_meta SET cooldown_until=0, rate_limited_until=0, quota_blocked_until=0, limit_reason='', quota_reason=''")
     pool._conn.commit()
     return {"ok": True, "message": "All tasks and pool statistics have been cleared"}
+
+
+class ProxyUpdateBody(BaseModel):
+    proxy: str = ""
+
+
+@app.get("/api/admin/proxy")
+async def admin_get_proxy(x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    return {"ok": True, "proxy": config.PROXY}
+
+
+@app.post("/api/admin/proxy")
+async def admin_update_proxy(body: ProxyUpdateBody, x_admin_key: str | None = Header(default=None)):
+    _admin_auth(x_admin_key)
+    saved = config.update_proxy(body.proxy)
+    return {"ok": True, "proxy": saved, "display": saved or "Direct / None"}
 
 
 @app.get("/api/admin/stats")

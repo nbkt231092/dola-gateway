@@ -130,8 +130,9 @@ async def import_account_from_data(account_name: str, data: dict | list | str) -
             "locale": "ja-JP",
             "timezone_id": "Asia/Tokyo",
         }
-        if config.PROXY:
-            kwargs["proxy"] = {"server": config.PROXY}
+        pw_proxy = config.get_playwright_proxy()
+        if pw_proxy:
+            kwargs["proxy"] = pw_proxy
         context = await p.chromium.launch_persistent_context(
             str(profile_dir),
             **kwargs,

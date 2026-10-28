@@ -728,9 +728,10 @@ tr:hover td { background: var(--color-paper-hover); }
       <span class="live-pulse-dot"></span>
       <span id="poolStatusText">POOL READY</span>
     </div>
-    <div class="live-indicator" title="Cấu hình DOLA_PROXY trong file .env.local">
+    <div class="live-indicator" onclick="openProxyModal()" style="cursor:pointer" title="Bấm để đổi DOLA_PROXY và lưu vào .env.local">
       <span style="color:var(--color-ink-3);font-size:10.5px">PROXY:</span>
       <span id="proxyStatusText" style="font-family:var(--font-mono)">Direct</span>
+      <span style="font-size:10px;opacity:0.7">✎</span>
     </div>
     
     <button class="btn" onclick="openDonateModal()" style="color:#b45309;border-color:#fde68a;background:#fffbeb;font-weight:600">
@@ -1093,17 +1094,23 @@ vid_002_Chú chó đang nằm ngủ..."></textarea>
       </div>
 
       <!-- Proxy Information Card -->
-      <div style="margin-bottom:16px;padding:12px 16px;background:var(--color-paper-3);border:1px solid var(--color-rule);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:space-between;gap:14px">
-        <div>
-          <div style="font-family:var(--font-display);font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px">
+      <div style="margin-bottom:16px;padding:12px 16px;background:var(--color-paper-3);border:1px solid var(--color-rule);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <div style="font-family:var(--font-display);font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span>🌐 Egress Proxy Hiện Tại:</span>
             <code id="accProxyDisplay" style="font-family:var(--font-mono);font-size:13px;color:var(--color-accent)">Direct / None</code>
           </div>
           <div style="font-size:12px;color:var(--color-ink-3);margin-top:3px;line-height:1.5">
-            Dola (ByteDance) yêu cầu IP mạng thuộc vùng <b>Nhật Bản (JP)</b> hoặc <b>Hàn Quốc (KR)</b>. Để bổ sung hoặc đổi proxy, mở file <code>.env.local</code> và sửa dòng <code>DOLA_PROXY=http://127.0.0.1:7890</code>.
+            Dola (ByteDance) yêu cầu IP mạng thuộc vùng <b>Nhật Bản (JP)</b> hoặc <b>Hàn Quốc (KR)</b>. Nhập proxy bên phải để ghi đè trực tiếp vào <code>.env.local</code> và áp dụng ngay.
           </div>
         </div>
-        <button class="btn btn-sm" onclick="promptProxyHelp()" style="white-space:nowrap">📋 Hướng Dẫn Proxy</button>
+        <form id="inlineProxyForm" onsubmit="event.preventDefault();saveProxyConfig('inlineProxyInput')" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label for="inlineProxyInput" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0">Địa chỉ Egress Proxy</label>
+          <input type="text" id="inlineProxyInput" class="input" style="width:240px;font-family:var(--font-mono);font-size:12.5px;padding:6px 10px" placeholder="VD: 192.168.1.7:8080" onkeydown="handleProxyInputKeydown(event, 'inlineProxyForm')" />
+          <button type="submit" class="btn btn-sm btn-p" style="white-space:nowrap">💾 Lưu Proxy</button>
+          <button type="button" class="btn btn-sm" onclick="clearProxyConfig()" title="Xóa proxy (dùng mạng trực tiếp / VPN)" style="white-space:nowrap">Xóa (Direct)</button>
+          <button type="button" class="btn btn-sm" onclick="promptProxyHelp()" style="white-space:nowrap">📋 Hướng Dẫn</button>
+        </form>
       </div>
 
       <div id="accountsTable" class="table-wrap"></div>
@@ -1267,12 +1274,23 @@ vid_002_Chú chó đang nằm ngủ..."></textarea>
     </div>
     <div style="color:var(--color-ink-2);font-size:13px;line-height:1.6;margin-bottom:16px">
       <p style="margin-bottom:10px">
-        Dola (ByteDance) yêu cầu IP mạng thuộc khu vực <b>Nhật Bản (JP)</b> hoặc <b>Hàn Quốc (KR)</b>. Nếu server chạy tại Việt Nam hoặc các quốc gia khác mà không qua proxy, request tới Dola sẽ bị từ chối kết nối hoặc yêu cầu captcha.
+        Dola (ByteDance) yêu cầu IP mạng thuộc khu vực <b>Nhật Bản (JP)</b> hoặc <b>Hàn Quốc (KR)</b>. Bạn có thể đổi trực tiếp bên dưới để ghi đè vào <code>.env.local</code> và áp dụng ngay lập tức:
       </p>
+
+      <form id="modalProxyForm" onsubmit="event.preventDefault();saveProxyConfig('modalProxyInput', true)" style="background:var(--color-paper-3);border:1px solid var(--color-rule);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
+        <label for="modalProxyInput" style="display:block;font-weight:600;font-size:12px;color:var(--color-ink-1);margin-bottom:6px">Đổi DOLA_PROXY trực tiếp (lưu vào <code>.env.local</code>):</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="modalProxyInput" class="input" style="flex:1;font-family:var(--font-mono);font-size:13px" placeholder="VD: 192.168.1.7:8080 hoặc http://127.0.0.1:7890" onkeydown="handleProxyInputKeydown(event, 'modalProxyForm')" />
+          <button type="submit" class="btn btn-p" style="white-space:nowrap">💾 Lưu .env.local</button>
+          <button type="button" class="btn" onclick="q('#modalProxyInput').value='';saveProxyConfig('modalProxyInput', true)" style="white-space:nowrap">Xóa Proxy</button>
+        </div>
+      </form>
       
       <div style="background:var(--color-paper-3);border:1px solid var(--color-rule);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
-        <div style="font-weight:600;font-size:12px;color:var(--color-ink-1);margin-bottom:6px">Cách cấu hình trong file <code>.env.local</code>:</div>
-        <pre style="margin:0;padding:8px 10px;background:#ffffff;border:1px solid var(--color-rule);border-radius:4px;font-family:var(--font-mono);font-size:12px;overflow-x:auto;color:#0f172a"># Proxy HTTP (VD: Clash, v2ray, vmess local port)
+        <div style="font-weight:600;font-size:12px;color:var(--color-ink-1);margin-bottom:6px">Các định dạng hỗ trợ trong <code>.env.local</code>:</div>
+        <pre style="margin:0;padding:8px 10px;background:#ffffff;border:1px solid var(--color-rule);border-radius:4px;font-family:var(--font-mono);font-size:12px;overflow-x:auto;color:#0f172a"># Proxy LAN / HTTP
+DOLA_PROXY=192.168.1.7:8080
+# Hoặc có http://
 DOLA_PROXY=http://127.0.0.1:7890
 
 # Hoặc SOCKS5 Proxy
@@ -1283,11 +1301,11 @@ DOLA_PROXY=http://127.0.0.1:7890
       </div>
 
       <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius-md);padding:10px 12px;color:#1e40af;font-size:12.5px">
-        💡 <b>Mẹo:</b> Nếu bạn bật VPN toàn hệ thống (Tun Mode hoặc System Proxy) trên máy tính chọn vị trí Japan / Korea, bạn có thể để trống <code>DOLA_PROXY=</code> trong file <code>.env.local</code>.
+        💡 <b>Mẹo:</b> Nếu bạn bật VPN toàn hệ thống (Tun Mode hoặc System Proxy) trên máy tính chọn vị trí Japan / Korea, bạn có thể bấm <b>Xóa Proxy</b> để để trống <code>DOLA_PROXY=</code>.
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn btn-p" onclick="closeProxyModal()">Đã Hiểu</button>
+      <button class="btn" onclick="closeProxyModal()">Đóng</button>
     </div>
   </div>
 </div>
@@ -1612,10 +1630,15 @@ async function checkAccountWarning() {
     if (warn) warn.style.display = hasAcc ? 'none' : 'block';
     const statusText = q('#poolStatusText');
     if (statusText) statusText.textContent = hasAcc ? `${st.total_accounts} ACCOUNTS ONLINE` : 'NO ACCOUNTS';
+    const rawProxy = (st.proxy && st.proxy !== 'Direct / None') ? st.proxy : '';
     const proxyStatus = q('#proxyStatusText');
-    if (proxyStatus) proxyStatus.textContent = st.proxy ? (st.proxy.length > 24 ? st.proxy.slice(0, 22) + '…' : st.proxy) : 'Direct';
+    if (proxyStatus) proxyStatus.textContent = rawProxy ? (rawProxy.length > 24 ? rawProxy.slice(0, 22) + '…' : rawProxy) : 'Direct';
     const accProxyDisplay = q('#accProxyDisplay');
-    if (accProxyDisplay) accProxyDisplay.textContent = st.proxy || 'Direct / None';
+    if (accProxyDisplay) accProxyDisplay.textContent = rawProxy || 'Direct / None';
+    const inlineProxyInput = q('#inlineProxyInput');
+    if (inlineProxyInput && document.activeElement !== inlineProxyInput) inlineProxyInput.value = rawProxy;
+    const modalProxyInput = q('#modalProxyInput');
+    if (modalProxyInput && document.activeElement !== modalProxyInput) modalProxyInput.value = rawProxy;
   } catch (e) {}
 }
 
@@ -3247,9 +3270,56 @@ function closeVideo() {
 /* Modals */
 function openDonateModal() { show('donateModal'); }
 function closeDonateModal() { hide('donateModal'); }
-function openProxyModal() { show('proxyModal'); }
+function openProxyModal() {
+  show('proxyModal');
+  const disp = q('#accProxyDisplay');
+  const cur = (disp && disp.textContent !== 'Direct / None') ? disp.textContent.trim() : '';
+  const inp = q('#modalProxyInput');
+  if (inp) {
+    inp.value = cur;
+    setTimeout(() => inp.focus(), 50);
+  }
+}
 function closeProxyModal() { hide('proxyModal'); }
 const promptProxyHelp = openProxyModal;
+
+function handleProxyInputKeydown(event, formId) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+    const form = document.getElementById(formId);
+    if (form) form.requestSubmit();
+  }
+}
+
+async function saveProxyConfig(inputId, closeModalOnSave = false) {
+  const inp = q('#' + inputId);
+  const val = inp ? inp.value.trim() : '';
+  try {
+    const res = await api('/api/admin/proxy', {
+      method: 'POST',
+      body: JSON.stringify({ proxy: val })
+    });
+    const saved = (res && res.proxy) ? res.proxy : '';
+    const proxyStatus = q('#proxyStatusText');
+    if (proxyStatus) proxyStatus.textContent = saved ? (saved.length > 24 ? saved.slice(0, 22) + '…' : saved) : 'Direct';
+    const accProxyDisplay = q('#accProxyDisplay');
+    if (accProxyDisplay) accProxyDisplay.textContent = saved || 'Direct / None';
+    if (q('#inlineProxyInput')) q('#inlineProxyInput').value = saved;
+    if (q('#modalProxyInput')) q('#modalProxyInput').value = saved;
+    toast(saved ? `Đã lưu DOLA_PROXY=${saved} vào .env.local!` : 'Đã xóa proxy (chế độ Direct / None) trong .env.local!', 'success');
+    if (closeModalOnSave) closeProxyModal();
+  } catch (e) {
+    toast('Lỗi lưu proxy: ' + e.message, 'error');
+  }
+}
+
+async function clearProxyConfig() {
+  if (q('#inlineProxyInput')) q('#inlineProxyInput').value = '';
+  await saveProxyConfig('inlineProxyInput', false);
+}
 
 /* ---- Hallmark ⌘K Command Palette Logic ---- */
 function openCommandPalette() {

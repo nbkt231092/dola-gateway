@@ -157,29 +157,51 @@ def find_captcha_frame(page):
 async def _select_pro_mode(page):
     try:
         await page.wait_for_timeout(2000)
-        try:
-            await page.wait_for_selector("button:has-text('高速')", state="visible", timeout=3000)
-        except Exception:
-            pass
-            
-        fast_btn = page.locator("button:has-text('高速')").first
-        if await fast_btn.count() > 0 and await fast_btn.is_visible():
+        fast_btn = None
+        for sel in (
+            "button:has-text('高速')",
+            "button:has-text('Fast')",
+            "button:has-text('Nhanh')",
+            "[role='button']:has-text('高速')",
+            "[role='button']:has-text('Fast')",
+            "[role='button']:has-text('Nhanh')",
+        ):
+            cand = page.locator(sel).first
+            if await cand.count() > 0 and await cand.is_visible():
+                fast_btn = cand
+                break
+        if fast_btn is None:
+            cand = page.get_by_text(re.compile(r"^(高速|Fast|Nhanh)$", re.I)).first
+            if await cand.count() > 0 and await cand.is_visible():
+                fast_btn = cand
+
+        if fast_btn is not None:
             await fast_btn.click(timeout=5000)
             await page.wait_for_timeout(1500)
-            pro_opt = page.locator("text=高度なプロモデル").first
-            if await pro_opt.count() > 0:
-                await pro_opt.click(timeout=5000)
-            else:
-                pro_opt2 = page.locator("text=プロ").last
-                if await pro_opt2.count() > 0:
-                    await pro_opt2.click(timeout=5000)
+            clicked_pro = False
+            for pro_sel in (
+                "text=高度なプロモデル",
+                "text=Advanced Pro",
+                "text=Mô hình Pro",
+                "text=プロ",
+                "text=Pro",
+            ):
+                pro_opt = page.locator(pro_sel).last
+                if await pro_opt.count() > 0 and await pro_opt.is_visible():
+                    await pro_opt.click(timeout=5000)
+                    clicked_pro = True
+                    break
+            if not clicked_pro:
+                pro_opt = page.get_by_text(re.compile(r"^(プロ|Pro)$", re.I)).last
+                if await pro_opt.count() > 0:
+                    await pro_opt.click(timeout=5000)
             await page.wait_for_timeout(1000)
     except Exception as e:
         print(f"  (Failed to select PRO mode: {str(e)[:80]})", flush=True)
 
 async def _fetch_bytes(url: str) -> bytes:
     async with aiohttp.ClientSession() as s:
-        async with s.get(url, proxy=config.PROXY or None) as r:
+        async with s.get(url, proxy=config.get_aiohttp_proxy()) as r:
             return await r.read()
 
 
@@ -551,39 +573,59 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
             await _preflight_balance(page, ms_token, fp, config.VIDEO_REQUIRED_POINTS)
 
             # ---- UI Submission ----
-            await page.click(VIDEO_BTN)
+            video_entry = page.get_by_text(
+                re.compile(r"^(動画を作成|Create Videos?|Tạo video)$", re.I)
+            ).first
+            await video_entry.click(timeout=30000)
             await page.wait_for_timeout(1500)
             if reference_image_paths:
                 await attach_reference_images(page, reference_image_paths)
-            # Select model in UI
+            # Select model in UI (supports JP / EN / VI)
             try:
                 current_model = None
                 current_label = ""
-                for label in ("モデル 2.5", "モデル 2.0高速", "モデル 2.0"):
+                for label in (
+                    "モデル 2.5", "モデル 2.0高速", "モデル 2.0",
+                    "Model 2.5", "Model 2.0 Fast", "Model 2.0",
+                    "Seedance 2.5", "Seedance 2.0 Fast", "Seedance 2.0",
+                    "Mô hình 2.5", "Mô hình 2.0 Nhanh", "Mô hình 2.0",
+                ):
                     loc = page.get_by_text(label, exact=True).first
                     if await loc.count() and await loc.is_visible():
                         current_model = loc
                         current_label = label
                         break
                 if current_model is None:
-                    current_model = page.get_by_text(re.compile(r"^モデル "), exact=False).first
+                    cand = page.get_by_text(re.compile(r"^(モデル|Model|Seedance|Mô hình)\s*2\.", re.I), exact=False).first
+                    if await cand.count() and await cand.is_visible():
+                        current_model = cand
+                        try:
+                            current_label = (await cand.inner_text()).strip()
+                        except Exception:
+                            current_label = ""
 
                 need_switch = True
                 if current_label:
                     if model_key == "seedance_v2.5" and "2.5" in current_label:
                         need_switch = False
-                    elif model_key == "seedance_v2.0" and ("2.0" in current_label or "高速" in current_label):
+                    elif model_key == "seedance_v2.0" and ("2.0" in current_label or "高速" in current_label or "fast" in current_label.lower()):
                         need_switch = False
 
                 if need_switch and current_model:
                     await current_model.click(timeout=5000)
                     await page.wait_for_timeout(500)
-                    options = (("Dreamina Seedance 2.5", "Seedance 2.5", "Seedance2.5")
-                               if model_key == "seedance_v2.5"
-                               else ("Dreamina Seedance 2.0高速", "Dreamina Seedance 2.0", "Seedance2.0Fast"))
+                    options = (
+                        ("Dreamina Seedance 2.5", "Seedance 2.5", "Seedance2.5", "Model 2.5", "モデル 2.5")
+                        if model_key == "seedance_v2.5"
+                        else (
+                            "Dreamina Seedance 2.0高速", "Dreamina Seedance 2.0 Fast",
+                            "Dreamina Seedance 2.0", "Seedance 2.0 Fast", "Seedance 2.0",
+                            "Seedance2.0Fast", "Model 2.0 Fast", "Model 2.0", "モデル 2.0",
+                        )
+                    )
                     selected = False
                     for option_text in options:
-                        loc = page.get_by_text(option_text, exact=False).first
+                        loc = page.get_by_text(option_text, exact=False).last
                         if await loc.count() and await loc.is_visible():
                             await loc.click(timeout=5000)
                             selected = True
@@ -595,9 +637,12 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                 print(f"  (Failed to set model {model_key}: {str(e)[:120]})", flush=True)
             if ratio:
                 try:
-                    await page.click("text=比率", timeout=3000)
+                    ratio_btn = page.get_by_text(
+                        re.compile(r"^(比率|Ratio|Aspect Ratio|Tỷ lệ|\d+:\d+)$", re.I)
+                    ).first
+                    await ratio_btn.click(timeout=3000)
                     await page.wait_for_timeout(500)
-                    await page.click(f"text={ratio}", timeout=3000)
+                    await page.get_by_text(ratio, exact=True).last.click(timeout=3000)
                 except Exception as e:
                     print(f"  (Failed to set ratio, using default: {str(e)[:80]})", flush=True)
             if duration:

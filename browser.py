@@ -41,8 +41,9 @@ async def launch_account_context(p, account: str, headless: bool = None, use_ext
         "locale": "ja-JP",
         "timezone_id": "Asia/Tokyo",
     }
-    if config.PROXY:
-        kwargs["proxy"] = {"server": config.PROXY}
+    pw_proxy = config.get_playwright_proxy()
+    if pw_proxy:
+        kwargs["proxy"] = pw_proxy
     return await p.chromium.launch_persistent_context(str(profile_dir), **kwargs)
 
 

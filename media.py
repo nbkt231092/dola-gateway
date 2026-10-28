@@ -114,8 +114,9 @@ async def download_one_image(session: aiohttp.ClientSession, url: str, dest: Pat
     current = await _validate_url_async(url)
     # Try configured proxy first, fall back to direct connection if blocked
     proxies = []
-    if config.PROXY:
-        proxies.append(config.PROXY)
+    aio_proxy = config.get_aiohttp_proxy()
+    if aio_proxy:
+        proxies.append(aio_proxy)
     proxies.append(None)
     last_error = None
     for proxy in proxies:
