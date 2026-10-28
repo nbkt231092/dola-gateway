@@ -527,18 +527,19 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
 
             # ---- UI Submission ----
             video_entry = page.get_by_text(
-                re.compile(r"^(動画を作成|Create Videos?|Tạo video)$", re.I)
+                re.compile(r"^(動画を作成|Create Videos?|동영상 생성|동영상 만들기|비디오 생성|Tạo video)$", re.I)
             ).first
             await video_entry.click(timeout=30000)
             await page.wait_for_timeout(1500)
             if reference_image_paths:
                 await attach_reference_images(page, reference_image_paths)
-            # Select model in UI (supports JP / EN / VI)
+            # Select model in UI (supports JP / KR / EN / VI)
             try:
                 current_model = None
                 current_label = ""
                 for label in (
                     "モデル 2.5", "モデル 2.0高速", "モデル 2.0",
+                    "모델 2.5", "모델 2.0 고속", "모델 2.0고속", "모델 2.0",
                     "Model 2.5", "Model 2.0 Fast", "Model 2.0",
                     "Seedance 2.5", "Seedance 2.0 Fast", "Seedance 2.0",
                     "Mô hình 2.5", "Mô hình 2.0 Nhanh", "Mô hình 2.0",
@@ -549,7 +550,7 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                         current_label = label
                         break
                 if current_model is None:
-                    cand = page.get_by_text(re.compile(r"^(モデル|Model|Seedance|Mô hình)\s*2\.", re.I), exact=False).first
+                    cand = page.get_by_text(re.compile(r"^(モデル|모델|Model|Seedance|Mô hình)\s*2\.", re.I), exact=False).first
                     if await cand.count() and await cand.is_visible():
                         current_model = cand
                         try:
@@ -561,19 +562,19 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                 if current_label:
                     if model_key == "seedance_v2.5" and "2.5" in current_label:
                         need_switch = False
-                    elif model_key == "seedance_v2.0" and ("2.0" in current_label or "高速" in current_label or "fast" in current_label.lower()):
+                    elif model_key == "seedance_v2.0" and ("2.0" in current_label or "高速" in current_label or "고속" in current_label or "fast" in current_label.lower()):
                         need_switch = False
 
                 if need_switch and current_model:
                     await current_model.click(timeout=5000)
                     await page.wait_for_timeout(500)
                     options = (
-                        ("Dreamina Seedance 2.5", "Seedance 2.5", "Seedance2.5", "Model 2.5", "モデル 2.5")
+                        ("Dreamina Seedance 2.5", "Seedance 2.5", "Seedance2.5", "Model 2.5", "モデル 2.5", "모델 2.5")
                         if model_key == "seedance_v2.5"
                         else (
-                            "Dreamina Seedance 2.0高速", "Dreamina Seedance 2.0 Fast",
+                            "Dreamina Seedance 2.0高速", "Dreamina Seedance 2.0 고속", "Dreamina Seedance 2.0 Fast",
                             "Dreamina Seedance 2.0", "Seedance 2.0 Fast", "Seedance 2.0",
-                            "Seedance2.0Fast", "Model 2.0 Fast", "Model 2.0", "モデル 2.0",
+                            "Seedance2.0Fast", "Model 2.0 Fast", "Model 2.0", "モデル 2.0", "모델 2.0",
                         )
                     )
                     selected = False
@@ -591,7 +592,7 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
             if ratio:
                 try:
                     ratio_btn = page.get_by_text(
-                        re.compile(r"^(比率|Ratio|Aspect Ratio|Tỷ lệ|\d+:\d+)$", re.I)
+                        re.compile(r"^(比率|비율|Ratio|Aspect Ratio|Tỷ lệ|\d+:\d+)$", re.I)
                     ).first
                     await ratio_btn.click(timeout=3000)
                     await page.wait_for_timeout(500)
