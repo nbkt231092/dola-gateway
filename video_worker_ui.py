@@ -154,51 +154,6 @@ def find_captcha_frame(page):
 
 
 
-async def _select_pro_mode(page):
-    try:
-        await page.wait_for_timeout(2000)
-        fast_btn = None
-        for sel in (
-            "button:has-text('高速')",
-            "button:has-text('Fast')",
-            "button:has-text('Nhanh')",
-            "[role='button']:has-text('高速')",
-            "[role='button']:has-text('Fast')",
-            "[role='button']:has-text('Nhanh')",
-        ):
-            cand = page.locator(sel).first
-            if await cand.count() > 0 and await cand.is_visible():
-                fast_btn = cand
-                break
-        if fast_btn is None:
-            cand = page.get_by_text(re.compile(r"^(高速|Fast|Nhanh)$", re.I)).first
-            if await cand.count() > 0 and await cand.is_visible():
-                fast_btn = cand
-
-        if fast_btn is not None:
-            await fast_btn.click(timeout=5000)
-            await page.wait_for_timeout(1500)
-            clicked_pro = False
-            for pro_sel in (
-                "text=高度なプロモデル",
-                "text=Advanced Pro",
-                "text=Mô hình Pro",
-                "text=プロ",
-                "text=Pro",
-            ):
-                pro_opt = page.locator(pro_sel).last
-                if await pro_opt.count() > 0 and await pro_opt.is_visible():
-                    await pro_opt.click(timeout=5000)
-                    clicked_pro = True
-                    break
-            if not clicked_pro:
-                pro_opt = page.get_by_text(re.compile(r"^(プロ|Pro)$", re.I)).last
-                if await pro_opt.count() > 0:
-                    await pro_opt.click(timeout=5000)
-            await page.wait_for_timeout(1000)
-    except Exception as e:
-        print(f"  (Failed to select PRO mode: {str(e)[:80]})", flush=True)
-
 async def _fetch_bytes(url: str) -> bytes:
     async with aiohttp.ClientSession() as s:
         async with s.get(url, proxy=config.get_aiohttp_proxy()) as r:
@@ -456,8 +411,6 @@ async def continue_conversation(account: str, conversation_id: str, message: str
             await page.goto(f"https://www.dola.com/chat/{conversation_id}", timeout=90000, wait_until="domcontentloaded")
             await page.wait_for_timeout(5000)
 
-            await _select_pro_mode(page)
-
             box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
             if not box:
                 raise RuntimeError("Không tìm thấy ô nhập prompt trên giao diện Dola")
@@ -655,8 +608,6 @@ async def generate_video(account: str, prompt: str, ratio: str = None,
                         await page.click(f"text={duration}s", timeout=3000)
                     except Exception as e:
                         print(f"  (Failed to set duration, using default: {str(e)[:80]})", flush=True)
-
-            await _select_pro_mode(page)
 
             box = await page.query_selector("textarea") or await page.query_selector('[contenteditable="true"]')
             if not box:
